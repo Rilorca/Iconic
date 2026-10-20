@@ -1,0 +1,632 @@
+:root {
+  /* GNOME Adwaita Light & Dark Design Tokens */
+  --window-bg: #242424;
+  --header-bg: #303030;
+  --header-border: rgba(255, 255, 255, 0.08);
+  --card-bg: #2e2e2e;
+  --card-bg-hover: #383838;
+  --card-bg-selected: #3584e4;
+  --card-border: rgba(255, 255, 255, 0.07);
+  
+  --popover-bg: #323232;
+  --popover-border: rgba(255, 255, 255, 0.12);
+
+  --text-main: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.45);
+
+  --accent: #3584e4;
+  --accent-hover: #1c71d8;
+  --accent-text: #ffffff;
+  --destructive: #e01b24;
+  --destructive-hover: #c01c28;
+  --success: #2ec27e;
+  --warning: #e5a50a;
+
+  --input-bg: #1e1e1e;
+  --input-border: rgba(255, 255, 255, 0.12);
+  --input-focus: #3584e4;
+
+  --sidebar-bg: #282828;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+
+  --font-family: system-ui, -apple-system, "Cantarell", "Ubuntu", "Inter", "Segoe UI", sans-serif;
+  --transition: all 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+[data-theme="light"] {
+  --window-bg: #fafafa;
+  --header-bg: #ebebeb;
+  --header-border: rgba(0, 0, 0, 0.1);
+  --card-bg: #ffffff;
+  --card-bg-hover: #f5f5f5;
+  --card-bg-selected: #3584e4;
+  --card-border: rgba(0, 0, 0, 0.08);
+
+  --popover-bg: #ffffff;
+  --popover-border: rgba(0, 0, 0, 0.15);
+
+  --text-main: #1e1e1e;
+  --text-secondary: #5e5e5e;
+  --text-muted: #8c8c8c;
+
+  --input-bg: #f0f0f0;
+  --input-border: rgba(0, 0, 0, 0.12);
+
+  --sidebar-bg: #f4f4f4;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--window-bg);
+  color: var(--text-main);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Adwaita HeaderBar */
+.adw-headerbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 14px;
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  flex-shrink: 0;
+}
+
+.adw-header-left, .adw-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.adw-title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.adw-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.adw-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Buttons */
+.adw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+[data-theme="light"] .adw-btn {
+  background-color: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.adw-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .adw-btn:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.adw-btn:active {
+  transform: scale(0.98);
+}
+
+.adw-btn.suggested {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+  font-weight: 600;
+}
+
+.adw-btn.suggested:hover {
+  background-color: var(--accent-hover);
+}
+
+.adw-btn.destructive {
+  background-color: rgba(224, 27, 36, 0.15);
+  color: #ff7b80;
+  border-color: rgba(224, 27, 36, 0.3);
+}
+
+.adw-btn.destructive:hover {
+  background-color: var(--destructive);
+  color: #fff;
+}
+
+.adw-btn.flat {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.adw-btn.flat:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* View Switcher (Adwaita Tab Bar in Header) */
+.adw-view-switcher {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .adw-view-switcher {
+  background-color: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.adw-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.adw-view-btn.active {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .adw-view-btn.active {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Main Layout */
+.app-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar */
+.adw-sidebar {
+  width: 260px;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 12px 14px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  list-style: none;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 2px;
+  color: var(--text-secondary);
+  transition: var(--transition);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+}
+
+.sidebar-item.active {
+  background-color: var(--accent);
+  color: #fff;
+}
+
+.sidebar-item .badge {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 2px 7px;
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+}
+
+.sidebar-item.active .badge {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Content Area */
+.adw-content-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Search and Filter Bar */
+.search-toolbar {
+  padding: 12px 18px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background-color: var(--window-bg);
+  border-bottom: 1px solid var(--card-border);
+}
+
+.adw-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  padding: 7px 12px;
+  flex: 1;
+  transition: var(--transition);
+}
+
+.adw-search-box:focus-within {
+  border-color: var(--input-focus);
+  box-shadow: 0 0 0 2px rgba(53, 132, 228, 0.25);
+}
+
+.adw-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-main);
+  font-size: 13px;
+  width: 100%;
+}
+
+.adw-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Grid Views */
+.scrollable-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+/* Adwaita Card Item */
+.adw-app-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.adw-app-card:hover {
+  background-color: var(--card-bg-hover);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.adw-app-card.has-override {
+  border-color: rgba(53, 132, 228, 0.5);
+  background: linear-gradient(135deg, rgba(53, 132, 228, 0.08) 0%, var(--card-bg) 60%);
+}
+
+.app-icon-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.app-icon-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.app-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.badge-override {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(53, 132, 228, 0.2);
+  color: #78aeed;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+/* Modal / Bottom Drawer for Icon Selection */
+.adw-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.adw-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.adw-modal {
+  width: 680px;
+  max-width: 92vw;
+  max-height: 85vh;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.adw-modal-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--card-border);
+  background-color: var(--header-bg);
+}
+
+.adw-modal-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.adw-modal-body {
+  padding: 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.variants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.variant-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+
+.variant-card:hover {
+  border-color: var(--accent);
+  background-color: rgba(53, 132, 228, 0.1);
+  transform: translateY(-2px);
+}
+
+.variant-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.variant-icon-wrapper {
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.variant-icon-wrapper img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.variant-theme-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variant-format {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.adw-modal-footer {
+  padding: 12px 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--card-border);
+  background-color: var(--header-bg);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Notifications Toast (Adwaita in-app notification) */
+.adw-toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.adw-toast {
+  background-color: #383838;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+[data-theme="light"] .adw-toast {
+  background-color: #242424;
+  color: #fff;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

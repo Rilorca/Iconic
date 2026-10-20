@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Icon Mixer</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- Adwaita HeaderBar -->
+    <header class="adw-headerbar">
+      <div class="adw-header-left">
+        <button id="btn-theme-toggle" class="adw-btn flat" title="Alternar tema claro/oscuro">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+          </svg>
+        </button>
+        <span class="system-theme-badge" id="current-sys-theme" style="font-size: 11.5px; opacity: 0.8; font-weight: 500;">Tema actual: Cargando...</span>
+      </div>
+
+      <div class="adw-view-switcher">
+        <button class="adw-view-btn active" data-view="apps-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="7" height="7" x="3" y="3" rx="1"></rect>
+            <rect width="7" height="7" x="14" y="3" rx="1"></rect>
+            <rect width="7" height="7" x="14" y="14" rx="1"></rect>
+            <rect width="7" height="7" x="3" y="14" rx="1"></rect>
+          </svg>
+          <span>Aplicaciones</span>
+        </button>
+        <button class="adw-view-btn" data-view="themes-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          </svg>
+          <span>Paquetes de Iconos</span>
+        </button>
+        <button class="adw-view-btn" data-view="mix-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          <span>Tema Combinado (<span id="override-count-tab">0</span>)</span>
+        </button>
+      </div>
+
+      <div class="adw-header-right">
+        <button id="btn-export-theme" class="adw-btn suggested" title="Exportar y aplicar nuevo tema de iconos">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Exportar Tema</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="app-container">
+      <!-- Applications View -->
+      <section id="view-apps" class="adw-content-area" style="display: flex;">
+        <div class="search-toolbar">
+          <div class="adw-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="app-search-input" class="adw-search-input" placeholder="Buscar aplicaciones instaladas..." />
+          </div>
+          <button id="btn-filter-modified" class="adw-btn flat" title="Filtrar solo apps modificadas">
+            Personalizadas (<span id="customized-count">0</span>)
+          </button>
+          <button id="btn-refresh-apps" class="adw-btn flat" title="Recargar lista">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="scrollable-view">
+          <div id="apps-grid" class="apps-grid">
+            <!-- App cards inserted dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Icon Themes View -->
+      <section id="view-themes" class="adw-content-area" style="display: none;">
+        <div class="search-toolbar">
+          <div class="adw-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="theme-search-input" class="adw-search-input" placeholder="Buscar paquetes de iconos instalados..." />
+          </div>
+          <span style="font-size: 12px; color: var(--text-muted);" id="theme-total-count">0 temas detectados</span>
+        </div>
+
+        <div class="scrollable-view">
+          <div id="themes-grid" class="apps-grid">
+            <!-- Themes cards inserted dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Mixed Theme Builder View -->
+      <section id="view-mix" class="adw-content-area" style="display: none;">
+        <div class="search-toolbar" style="flex-wrap: wrap; gap: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 250px;">
+            <label style="font-size: 13px; font-weight: 600;">Nombre:</label>
+            <input type="text" id="mixed-theme-name" class="adw-search-input" value="Mi-Icon-Mix" style="background: var(--input-bg); padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--input-border);" />
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label style="font-size: 13px; font-weight: 600;">Base:</label>
+            <select id="mixed-base-theme-select" style="background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none;">
+              <!-- Loaded options -->
+            </select>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button id="btn-quick-save" class="adw-btn suggested" title="Guardar cambios y actualizar el tema en el escritorio inmediatamente">
+              💾 Guardar y Aplicar
+            </button>
+            <button id="btn-clear-overrides" class="adw-btn destructive" title="Vaciar selección actual">
+              Vaciar
+            </button>
+          </div>
+        </div>
+
+        <div class="scrollable-view">
+          <div id="mix-empty-placeholder" style="text-align: center; padding: 60px 20px; color: var(--text-muted); display: block;">
+            <div style="font-size: 48px; margin-bottom: 12px;">🎨</div>
+            <h3 style="color: var(--text-main); margin-bottom: 6px;">Aún no has seleccionado iconos personalizados</h3>
+            <p style="font-size: 13px; max-width: 460px; margin: 0 auto;">
+              Dirígete a la pestaña de <b>Aplicaciones</b>, haz clic sobre cualquier aplicación y elige qué variante de icono de tus paquetes instalados deseas asignarle.
+            </p>
+          </div>
+          <div id="mix-grid" class="apps-grid" style="display: none;">
+            <!-- Overridden items -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Icon Picker Modal -->
+    <div id="icon-picker-modal" class="adw-modal-overlay">
+      <div class="adw-modal">
+        <div class="adw-modal-header">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div id="modal-app-preview" class="app-icon-preview" style="width: 36px; height: 36px;"></div>
+            <div>
+              <div id="modal-app-title" class="adw-modal-title">Elegir Icono</div>
+              <div id="modal-app-icon-name" style="font-size: 11px; color: var(--text-muted);">icon-name</div>
+            </div>
+          </div>
+          <button id="btn-close-modal" class="adw-btn flat" style="padding: 4px 8px; font-size: 16px;">✕</button>
+        </div>
+
+        <div class="adw-modal-body">
+          <!-- Custom Icon Search Bar inside Modal -->
+          <div style="margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div class="adw-search-box" style="flex: 1; padding: 5px 10px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="modal-custom-search-input" class="adw-search-input" placeholder="Buscar icono de otra app (ej: discord, spotify, firefox...)" />
+              </div>
+              <button id="btn-modal-search-custom" class="adw-btn" style="padding: 6px 12px; font-size: 12px;">
+                Buscar
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span id="modal-variants-label" style="font-size: 12px; color: var(--text-secondary);">
+                Variantes encontradas en tus paquetes instalados:
+              </span>
+              <div id="modal-loading-indicator" style="font-size: 12px; color: var(--accent); display: none;">
+                Buscando variantes...
+              </div>
+            </div>
+          </div>
+
+          <div id="variants-container" class="variants-grid">
+            <!-- Icon variants from installed packs -->
+          </div>
+        </div>
+
+        <div class="adw-modal-footer">
+          <button id="btn-reset-app-icon" class="adw-btn destructive" style="margin-right: auto;">
+            Restaurar Original
+          </button>
+          <button id="btn-direct-override" class="adw-btn flat" title="Modifica directamente el archivo .desktop en ~/.local/share/applications">
+            Aplicar solo a este .desktop
+          </button>
+          <button id="btn-select-for-mixed" class="adw-btn suggested">
+            Guardar en Tema Combinado
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Export Theme Modal -->
+    <div id="export-modal" class="adw-modal-overlay">
+      <div class="adw-modal" style="width: 500px;">
+        <div class="adw-modal-header">
+          <div class="adw-modal-title">Exportar Tema Combinado</div>
+          <button id="btn-close-export-modal" class="adw-btn flat" style="padding: 4px 8px;">✕</button>
+        </div>
+        <div class="adw-modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px;">Nombre del Tema</label>
+            <input type="text" id="export-theme-name-input" class="adw-search-input" value="MiTemaCombinado" style="background: var(--input-bg); padding: 8px 12px; border-radius: var(--radius-md); border: 1px solid var(--input-border); width: 100%;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px;">Tema Base (Fallback de iconos no modificados)</label>
+            <select id="export-base-select" style="background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); padding: 8px 12px; border-radius: var(--radius-md); font-size: 13px; width: 100%; outline: none;"></select>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px;">
+            <input type="checkbox" id="check-apply-immediately" checked style="width: 16px; height: 16px; accent-color: var(--accent);" />
+            <label for="check-apply-immediately" style="font-size: 13px; cursor: pointer;">
+              Aplicar inmediatamente como tema de escritorio actual (GNOME / gsettings)
+            </label>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+            El paquete se generará en <code>~/.local/share/icons/</code> con su especificación Freedesktop válida, enlazando recursivamente los iconos elegidos e indexando la caché GTK.
+          </p>
+        </div>
+        <div class="adw-modal-footer">
+          <button id="btn-cancel-export" class="adw-btn flat">Cancelar</button>
+          <button id="btn-confirm-export" class="adw-btn suggested">Crear y Aplicar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="adw-toast-container"></div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>
