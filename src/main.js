@@ -6,12 +6,16 @@ let appState = {
   currentSysTheme: '',
   iconThemes: [],
   apps: [],
-  appIconMap: new Map(), // fileName -> base64
-  overrides: new Map(),  // appFileName -> { match: ThemeIconMatch, app: AppEntry }
+  systemItems: [],
+  appIconMap: new Map(),     // key -> base64
+  systemIconMap: new Map(),  // key -> base64
+  overrides: new Map(),      // itemKey -> { match: ThemeIconMatch, app: AppEntry | SystemItem, isSystem: bool }
   activeView: 'apps-view',
   selectedApp: null,
   selectedVariant: null,
   showOnlyModified: false,
+  isLoadingApps: false,
+  systemFilter: 'all',
 };
 
 // UI Elements
@@ -21,15 +25,29 @@ const els = {
   viewBtns: document.querySelectorAll('.adw-view-btn'),
   views: {
     'apps-view': document.getElementById('view-apps'),
+    'system-view': document.getElementById('view-system'),
     'themes-view': document.getElementById('view-themes'),
     'mix-view': document.getElementById('view-mix'),
   },
+  // Progress Bar & Loading Elements
+  appLoadingBarContainer: document.getElementById('app-loading-bar-container'),
+  appLoadingBar: document.getElementById('app-loading-bar'),
+  appsLoadingBanner: document.getElementById('apps-loading-banner'),
+  loadingStatusText: document.getElementById('loading-status-text'),
+  loadingProgressPercentage: document.getElementById('loading-progress-percentage'),
+  bannerProgressBar: document.getElementById('banner-progress-bar'),
+
   appsGrid: document.getElementById('apps-grid'),
   appSearchInput: document.getElementById('app-search-input'),
   btnRefreshApps: document.getElementById('btn-refresh-apps'),
   btnFilterModified: document.getElementById('btn-filter-modified'),
   customizedCount: document.getElementById('customized-count'),
   overrideCountTab: document.getElementById('override-count-tab'),
+
+  // System items view
+  systemGrid: document.getElementById('system-grid'),
+  systemSearchInput: document.getElementById('system-search-input'),
+  btnSysFilters: document.querySelectorAll('.btn-sys-filter'),
 
   themesGrid: document.getElementById('themes-grid'),
   themeSearchInput: document.getElementById('theme-search-input'),
@@ -91,6 +109,7 @@ function showToast(message, isError = false) {
 
 // Initialize Application
 async function init() {
+  loadSavedTheme();
   setupEventListeners();
   loadSavedOverrides();
 
@@ -104,6 +123,12 @@ async function init() {
 
   await loadIconThemes();
   await loadApplications();
+  await loadSystemItems();
+}
+
+function loadSavedTheme() {
+  const saved = localStorage.getItem('icon_mixer_color_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
 }
 
 // Event Listeners
@@ -111,9 +136,10 @@ function setupEventListeners() {
   // Theme Toggle (Light / Dark)
   els.themeToggle.addEventListener('click', () => {
     const html = document.documentElement;
-    const current = html.getAttribute('data-theme');
+    const current = html.getAttribute('data-theme') || 'dark';
     const next = current === 'light' ? 'dark' : 'light';
     html.setAttribute('data-theme', next);
+    localStorage.setItem('icon_mixer_color_theme', next);
   });
 
   // View Switcher
@@ -126,11 +152,15 @@ function setupEventListeners() {
       appState.activeView = target;
 
       Object.entries(els.views).forEach(([viewKey, viewEl]) => {
-        viewEl.style.display = viewKey === target ? 'flex' : 'none';
+        if (viewEl) {
+          viewEl.style.display = viewKey === target ? 'flex' : 'none';
+        }
       });
 
       if (target === 'mix-view') {
         renderMixedView();
+      } else if (target === 'system-view') {
+        renderSystemItems();
       }
     });
   });
@@ -138,6 +168,19 @@ function setupEventListeners() {
   // Search Inputs
   els.appSearchInput.addEventListener('input', () => renderApps());
   els.themeSearchInput.addEventListener('input', () => renderThemes());
+  if (els.systemSearchInput) {
+    els.systemSearchInput.addEventListener('input', () => renderSystemItems());
+  }
+
+  // System category filters
+  els.btnSysFilters.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      els.btnSysFilters.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      appState.systemFilter = btn.dataset.filter;
+      renderSystemItems();
+    });
+  });
 
   // Filter modified
   els.btnFilterModified.addEventListener('click', () => {
@@ -148,8 +191,9 @@ function setupEventListeners() {
 
   // Refresh
   els.btnRefreshApps.addEventListener('click', () => {
+    if (appState.isLoadingApps) return;
     loadApplications();
-    showToast('Lista de aplicaciones recargada');
+    showToast('Recargando aplicaciones...');
   });
 
   // Quick Save in Mix View
@@ -189,16 +233,19 @@ function setupEventListeners() {
       showToast('Selecciona una variante primero');
       return;
     }
-    // Ensure target_app_icon is linked to this app's icon_name
+    // Ensure target_app_icon is linked to this item's icon_name
     appState.selectedVariant.target_app_icon = appState.selectedApp.icon_name;
 
-    appState.overrides.set(appState.selectedApp.file_name, {
+    const key = appState.selectedApp.file_name || appState.selectedApp.id;
+    appState.overrides.set(key, {
       match: appState.selectedVariant,
       app: appState.selectedApp,
+      isSystem: Boolean(appState.selectedApp.category),
     });
     saveOverrides();
     updateBadgeCounts();
     renderApps();
+    renderSystemItems();
     closeModal();
     showToast(`Asignado a tema combinado: ${appState.selectedApp.name}`);
   });
@@ -206,6 +253,10 @@ function setupEventListeners() {
   els.btnDirectOverride.addEventListener('click', async () => {
     if (!appState.selectedApp || !appState.selectedVariant) {
       showToast('Selecciona una variante primero');
+      return;
+    }
+    if (!appState.selectedApp.file_name) {
+      showToast('Las carpetas y tipos de archivos se configuran a través del Tema Combinado');
       return;
     }
     try {
@@ -224,20 +275,26 @@ function setupEventListeners() {
 
   els.btnResetAppIcon.addEventListener('click', async () => {
     if (!appState.selectedApp) return;
-    try {
-      await invoke('restore_single_app_icon', {
-        desktopFileName: appState.selectedApp.file_name,
-      });
-      appState.overrides.delete(appState.selectedApp.file_name);
-      saveOverrides();
+    const key = appState.selectedApp.file_name || appState.selectedApp.id;
+
+    if (appState.selectedApp.file_name) {
+      try {
+        await invoke('restore_single_app_icon', {
+          desktopFileName: appState.selectedApp.file_name,
+        });
+      } catch (err) {
+        // continue to clear mix override
+      }
       appState.selectedApp.is_user_override = false;
-      updateBadgeCounts();
-      renderApps();
-      closeModal();
-      showToast(`Icono restaurado a su valor original`);
-    } catch (err) {
-      showToast(`Error al restaurar: ${err}`, true);
     }
+
+    appState.overrides.delete(key);
+    saveOverrides();
+    updateBadgeCounts();
+    renderApps();
+    renderSystemItems();
+    closeModal();
+    showToast(`Icono restaurado a su valor original`);
   });
 
   // Export Modal Actions
@@ -264,6 +321,7 @@ function setupEventListeners() {
       updateBadgeCounts();
       renderMixedView();
       renderApps();
+      renderSystemItems();
       showToast('Selección de iconos vaciada');
     }
   });
@@ -280,6 +338,9 @@ async function performExport(isQuickSave = false) {
     const m = { ...item.match };
     if (!m.target_app_icon) {
       m.target_app_icon = item.app.icon_name;
+    }
+    if (m.size === undefined) {
+      m.size = null;
     }
     return m;
   });
@@ -306,8 +367,11 @@ async function performExport(isQuickSave = false) {
     // Refresh themes list & app icons cache
     await loadIconThemes();
     appState.appIconMap.clear();
-    loadAppsIconsBatch(appState.apps);
+    appState.systemIconMap.clear();
+    await loadAppsIconsBatch(appState.apps);
+    await loadSystemIconsBatch(appState.systemItems);
     renderApps();
+    renderSystemItems();
   } catch (err) {
     showToast(`Error exportando tema: ${err}`, true);
   }
@@ -342,43 +406,147 @@ function populateExportSelect() {
   els.exportBaseSelect.value = els.mixedBaseSelect.value;
 }
 
-// Load Applications
+// Load Applications with Progress
 async function loadApplications() {
-  els.appsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">Cargando aplicaciones instaladas...</div>`;
+  appState.isLoadingApps = true;
+  els.appsGrid.innerHTML = '';
+  els.appLoadingBarContainer.style.display = 'block';
+  els.appLoadingBar.style.width = '0%';
+  els.appsLoadingBanner.style.display = 'flex';
+  els.loadingProgressPercentage.textContent = '0%';
+  els.bannerProgressBar.style.width = '0%';
+  els.loadingStatusText.textContent = 'Analizando aplicaciones instaladas...';
+
   try {
     const apps = await invoke('list_applications');
     appState.apps = apps;
     updateBadgeCounts();
-    renderApps();
 
-    // Lazy load icons for visible applications
-    loadAppsIconsBatch(apps);
+    // Batch resolve icons in parallel chunks
+    await loadAppsIconsBatch(apps);
   } catch (err) {
     showToast(`Error al cargar aplicaciones: ${err}`, true);
+  } finally {
+    appState.isLoadingApps = false;
+    els.appLoadingBarContainer.style.display = 'none';
+    els.appsLoadingBanner.style.display = 'none';
+    renderApps();
   }
 }
 
-// Batch resolver for app icons
+// Parallel Chunked Icon Resolver
 async function loadAppsIconsBatch(apps) {
-  for (const app of apps) {
-    if (!appState.appIconMap.has(app.file_name)) {
+  const toLoad = apps.filter((a) => !appState.appIconMap.has(a.file_name));
+  const total = toLoad.length;
+  if (total === 0) return;
+
+  const chunkSize = 25;
+  let completed = 0;
+
+  for (let i = 0; i < total; i += chunkSize) {
+    const chunk = toLoad.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (app) => {
+        try {
+          const iconUri = await invoke('resolve_app_icon', {
+            iconName: app.icon_name,
+            themeId: appState.currentSysTheme || null,
+          });
+          if (iconUri) {
+            appState.appIconMap.set(app.file_name, iconUri);
+          }
+        } catch (e) {
+          // fallback
+        }
+      })
+    );
+
+    completed += chunk.length;
+    const progress = Math.min(100, Math.round((completed / total) * 100));
+    els.appLoadingBar.style.width = `${progress}%`;
+    els.bannerProgressBar.style.width = `${progress}%`;
+    els.loadingProgressPercentage.textContent = `${progress}%`;
+    els.loadingStatusText.textContent = `Cargando iconos (${completed} de ${total})...`;
+  }
+}
+
+// Load System Items (Carpetas, Formatos, Dispositivos)
+async function loadSystemItems() {
+  try {
+    const items = await invoke('list_system_items');
+    appState.systemItems = items;
+    await loadSystemIconsBatch(items);
+    renderSystemItems();
+  } catch (err) {
+    console.warn('Failed to load system items:', err);
+  }
+}
+
+async function loadSystemIconsBatch(items) {
+  for (const it of items) {
+    if (!appState.systemIconMap.has(it.id)) {
       try {
         const iconUri = await invoke('resolve_app_icon', {
-          iconName: app.icon_name,
+          iconName: it.icon_name,
           themeId: appState.currentSysTheme || null,
         });
         if (iconUri) {
-          appState.appIconMap.set(app.file_name, iconUri);
-          const imgEl = document.getElementById(`icon-img-${CSS.escape(app.file_name)}`);
-          if (imgEl) {
-            imgEl.src = iconUri;
-          }
+          appState.systemIconMap.set(it.id, iconUri);
         }
       } catch (e) {
-        // silently fallback
+        // fallback
       }
     }
   }
+}
+
+// Render System Items View
+function renderSystemItems() {
+  if (!els.systemGrid) return;
+  const query = (els.systemSearchInput ? els.systemSearchInput.value : '').toLowerCase().trim();
+
+  let filtered = appState.systemItems.filter((it) => {
+    const matchFilter = appState.systemFilter === 'all' || it.category === appState.systemFilter;
+    const matchQuery =
+      it.name.toLowerCase().includes(query) ||
+      it.icon_name.toLowerCase().includes(query) ||
+      it.description.toLowerCase().includes(query);
+    return matchFilter && matchQuery;
+  });
+
+  els.systemGrid.innerHTML = '';
+  if (filtered.length === 0) {
+    els.systemGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--text-muted);">No se encontraron elementos coincidentes</div>`;
+    return;
+  }
+
+  filtered.forEach((it) => {
+    const override = appState.overrides.get(it.id);
+    const hasMix = Boolean(override);
+
+    const iconSrc = hasMix
+      ? override.match.icon_data
+      : appState.systemIconMap.get(it.id) || '';
+
+    const card = document.createElement('div');
+    card.className = `adw-app-card ${hasMix ? 'has-override' : ''}`;
+    card.innerHTML = `
+      <div class="app-icon-preview">
+        <img id="icon-sys-${CSS.escape(it.id)}" src="${iconSrc || ''}" alt="" onerror="this.style.display='none'" />
+      </div>
+      <div class="app-info">
+        <div class="app-name">${it.name}</div>
+        <div class="app-desc">${it.description}</div>
+        <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px;">
+          <span style="font-size: 10px; color: var(--text-muted);">${it.category}</span>
+          ${hasMix ? `<span class="badge-override">🎨 ${override.match.theme_name}</span>` : ''}
+        </div>
+      </div>
+    `;
+
+    card.addEventListener('click', () => openIconPicker(it));
+    els.systemGrid.appendChild(card);
+  });
 }
 
 // Render Themes
@@ -416,12 +584,23 @@ function renderThemes() {
       </div>
       <div style="display: flex; gap: 6px; margin-left: auto;">
         ${isCustomMixer ? `<button class="adw-btn flat btn-edit-theme" title="Cargar este tema en el editor para seguir modificándolo">✏️ Editar</button>` : ''}
+        <button class="adw-btn flat btn-open-folder" title="Abrir carpeta contenedora en el gestor de archivos">📂 Abrir</button>
         <button class="adw-btn flat btn-apply-theme" title="Establecer como tema actual del sistema">
           ${isCurrent ? '✓ Activo' : 'Activar'}
         </button>
-        ${isCustomMixer ? `<button class="adw-btn flat btn-delete-theme" style="color: var(--destructive);" title="Eliminar tema personalizado">🗑️</button>` : ''}
+        <button class="adw-btn flat btn-delete-theme" style="color: var(--destructive);" title="Eliminar este paquete de iconos">🗑️</button>
       </div>
     `;
+
+    // Open Folder
+    card.querySelector('.btn-open-folder').addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        await invoke('open_theme_folder', { themePath: t.path });
+      } catch (err) {
+        showToast(`Error al abrir carpeta: ${err}`, true);
+      }
+    });
 
     // Apply button
     card.querySelector('.btn-apply-theme').addEventListener('click', async (e) => {
@@ -433,7 +612,11 @@ function renderThemes() {
         showToast(`Tema aplicado: ${t.name}`);
         renderThemes();
         appState.appIconMap.clear();
-        loadAppsIconsBatch(appState.apps);
+        appState.systemIconMap.clear();
+        await loadAppsIconsBatch(appState.apps);
+        await loadSystemIconsBatch(appState.systemItems);
+        renderApps();
+        renderSystemItems();
       } catch (err) {
         showToast(`Error al aplicar tema: ${err}`, true);
       }
@@ -448,22 +631,27 @@ function renderThemes() {
           await loadThemeForEditing(t.id);
         });
       }
+    }
 
-      const deleteBtn = card.querySelector('.btn-delete-theme');
-      if (deleteBtn) {
-        deleteBtn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          if (confirm(`¿Eliminar el tema personalizado "${t.name}"?`)) {
-            try {
-              await invoke('delete_mixed_theme', { themeId: t.id });
-              showToast(`Tema "${t.name}" eliminado`);
-              await loadIconThemes();
-            } catch (err) {
-              showToast(`Error: ${err}`, true);
-            }
+    // Delete button for any icon theme (User or System)
+    const deleteBtn = card.querySelector('.btn-delete-theme');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const msg = t.is_user
+          ? `¿Eliminar el paquete de iconos "${t.name}" del sistema?`
+          : `"${t.name}" es un paquete de sistema (/usr). Para eliminarlo se requerirá autorización de administrador (pkexec). ¿Deseas continuar?`;
+
+        if (confirm(msg)) {
+          try {
+            const res = await invoke('delete_icon_theme', { themePath: t.path });
+            showToast(res);
+            await loadIconThemes();
+          } catch (err) {
+            showToast(`Error: ${err}`, true);
           }
-        });
-      }
+        }
+      });
     }
 
     els.themesGrid.appendChild(card);
@@ -477,28 +665,33 @@ async function loadThemeForEditing(themeId) {
     els.mixedThemeName.value = profile.target_theme_name;
     els.mixedBaseSelect.value = profile.base_theme;
 
-    // Map overrides back to apps if matching
+    // Map overrides back to apps or system items if matching
     appState.overrides.clear();
     for (const [iconStem, appOv] of Object.entries(profile.overrides)) {
-      // Find matching app by icon_name
+      // Find matching app or system item
       const matchedApp = appState.apps.find((a) => a.icon_name.toLowerCase() === iconStem.toLowerCase());
-      if (matchedApp) {
-        // Resolve data URI
+      const matchedSys = appState.systemItems.find((s) => s.icon_name.toLowerCase() === iconStem.toLowerCase());
+
+      const targetItem = matchedApp || matchedSys;
+      if (targetItem) {
         const uri = await invoke('resolve_app_icon', {
-          iconName: matchedApp.icon_name,
+          iconName: targetItem.icon_name,
           themeId: themeId,
         });
 
-        appState.overrides.set(matchedApp.file_name, {
+        const key = targetItem.file_name || targetItem.id;
+        appState.overrides.set(key, {
           match: {
             theme_id: themeId,
             theme_name: profile.target_theme_name,
             icon_path: appOv.icon_path,
             icon_format: appOv.icon_path.endsWith('.svg') ? 'svg' : 'png',
             icon_data: uri || '',
-            target_app_icon: matchedApp.icon_name,
+            target_app_icon: targetItem.icon_name,
+            size: appOv.icon_path.endsWith('.svg') ? 'Vectorial (SVG)' : 'Raster',
           },
-          app: matchedApp,
+          app: targetItem,
+          isSystem: Boolean(targetItem.category),
         });
       }
     }
@@ -516,6 +709,8 @@ async function loadThemeForEditing(themeId) {
 
 // Render Applications
 function renderApps() {
+  if (appState.isLoadingApps) return;
+
   const query = els.appSearchInput.value.toLowerCase().trim();
   let filtered = appState.apps.filter(
     (a) =>
@@ -577,7 +772,7 @@ function renderMixedView() {
   els.mixGrid.style.display = 'grid';
   els.mixGrid.innerHTML = '';
 
-  items.forEach(({ match, app }) => {
+  items.forEach(({ match, app, isSystem }) => {
     const card = document.createElement('div');
     card.className = 'adw-app-card has-override';
     card.innerHTML = `
@@ -586,19 +781,24 @@ function renderMixedView() {
       </div>
       <div class="app-info">
         <div class="app-name">${app.name}</div>
-        <div class="app-desc">Origen: <b>${match.theme_name}</b></div>
-        <span class="badge-override">${match.icon_format.toUpperCase()}</span>
+        <div class="app-desc">Origen: <b>${match.theme_name}</b> ${isSystem ? '• ' + (app.category || 'Sistema') : ''}</div>
+        <div style="display: flex; gap: 6px; align-items: center; margin-top: 4px;">
+          <span class="badge-override">${match.icon_format.toUpperCase()}</span>
+          ${match.size ? `<span class="variant-size-pill">${match.size}</span>` : ''}
+        </div>
       </div>
       <button class="adw-btn flat btn-remove-mix" style="margin-left: auto; color: var(--destructive);" title="Quitar asignación">✕</button>
     `;
 
     card.querySelector('.btn-remove-mix').addEventListener('click', (e) => {
       e.stopPropagation();
-      appState.overrides.delete(app.file_name);
+      const key = app.file_name || app.id;
+      appState.overrides.delete(key);
       saveOverrides();
       updateBadgeCounts();
       renderMixedView();
       renderApps();
+      renderSystemItems();
       showToast(`Quitado ${app.name} del tema combinado`);
     });
 
@@ -606,26 +806,32 @@ function renderMixedView() {
   });
 }
 
-// Open Icon Picker Modal
-async function openIconPicker(app) {
-  appState.selectedApp = app;
+// Open Icon Picker Modal (App or System Item)
+async function openIconPicker(item) {
+  appState.selectedApp = item;
   appState.selectedVariant = null;
 
-  els.modalAppTitle.textContent = app.name;
-  els.modalAppIconName.textContent = `Identificador de icono: ${app.icon_name}`;
+  els.modalAppTitle.textContent = item.name;
+  els.modalAppIconName.textContent = `Identificador de icono: ${item.icon_name}`;
   if (els.modalCustomSearchInput) {
     els.modalCustomSearchInput.value = '';
   }
-  
-  const currentUri = appState.appIconMap.get(app.file_name);
+
+  const key = item.file_name || item.id;
+  const currentUri = item.file_name ? appState.appIconMap.get(key) : appState.systemIconMap.get(key);
   els.modalAppPreview.innerHTML = currentUri ? `<img src="${currentUri}" alt="" />` : '🖼️';
+
+  // Direct desktop override is only valid for desktop apps
+  if (els.btnDirectOverride) {
+    els.btnDirectOverride.style.display = item.file_name ? 'inline-flex' : 'none';
+  }
 
   els.iconModal.classList.add('active');
 
-  await fetchAndRenderVariants(app.icon_name, false);
+  await fetchAndRenderVariants(item.icon_name, false);
 }
 
-// Fetch and render variants (supports custom icon name search)
+// Fetch and render variants (supports custom icon name search & displays pixel dimensions)
 async function fetchAndRenderVariants(iconQuery, isCustom = false) {
   if (!iconQuery || !iconQuery.trim()) return;
   const cleanQuery = iconQuery.trim();
@@ -645,12 +851,12 @@ async function fetchAndRenderVariants(iconQuery, isCustom = false) {
     els.modalLoadingIndicator.style.display = 'none';
 
     if (variants.length === 0) {
-      els.variantsContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted);">No se encontraron iconos para "${cleanQuery}". Intenta con otro término (ej: spotify, discord, firefox, web-browser...).</div>`;
+      els.variantsContainer.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted);">No se encontraron iconos para "${cleanQuery}". Intenta con otro término (ej: folder, document, text, archive...).</div>`;
       return;
     }
 
-    // Existing override for this app?
-    const existingOverride = appState.selectedApp ? appState.overrides.get(appState.selectedApp.file_name) : null;
+    const key = appState.selectedApp ? (appState.selectedApp.file_name || appState.selectedApp.id) : null;
+    const existingOverride = key ? appState.overrides.get(key) : null;
 
     variants.forEach((v) => {
       const isSelected = existingOverride && existingOverride.match.icon_path === v.icon_path;
@@ -661,7 +867,10 @@ async function fetchAndRenderVariants(iconQuery, isCustom = false) {
           <img src="${v.icon_data}" alt="" />
         </div>
         <div class="variant-theme-name" title="${v.theme_name}">${v.theme_name}</div>
-        <div class="variant-format">${v.icon_format}</div>
+        <div style="display: flex; gap: 4px; align-items: center; justify-content: center; flex-wrap: wrap;">
+          <div class="variant-format">${v.icon_format}</div>
+          ${v.size ? `<span class="variant-size-pill">${v.size}</span>` : ''}
+        </div>
       `;
 
       vCard.addEventListener('click', () => {

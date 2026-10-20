@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Icon Mixer</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -28,6 +29,12 @@
             <rect width="7" height="7" x="3" y="14" rx="1"></rect>
           </svg>
           <span>Aplicaciones</span>
+        </button>
+        <button class="adw-view-btn" data-view="system-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Carpetas y Archivos</span>
         </button>
         <button class="adw-view-btn" data-view="themes-view">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -55,10 +62,28 @@
       </div>
     </header>
 
+    <!-- Top Loading Progress Bar -->
+    <div id="app-loading-bar-container" class="adw-progress-container" style="display: none;">
+      <div id="app-loading-bar" class="adw-progress-fill"></div>
+    </div>
+
     <!-- Main Content Container -->
     <main class="app-container">
       <!-- Applications View -->
       <section id="view-apps" class="adw-content-area" style="display: flex;">
+        <!-- Loading Progress Banner -->
+        <div id="apps-loading-banner" class="apps-loading-banner" style="display: none;">
+          <div class="spinner-adw"></div>
+          <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span id="loading-status-text" style="font-weight: 600; font-size: 13px;">Cargando aplicaciones e iconos del sistema...</span>
+              <span id="loading-progress-percentage" style="font-weight: 700; font-size: 13px; color: var(--accent);">0%</span>
+            </div>
+            <div class="adw-progress-track">
+              <div id="banner-progress-bar" class="adw-progress-bar" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
         <div class="search-toolbar">
           <div class="adw-search-box">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
@@ -80,6 +105,31 @@
         <div class="scrollable-view">
           <div id="apps-grid" class="apps-grid">
             <!-- App cards inserted dynamically -->
+          </div>
+        </div>
+      </section>
+
+      <!-- System Items View (Folders, MimeTypes, Devices) -->
+      <section id="view-system" class="adw-content-area" style="display: none;">
+        <div class="search-toolbar">
+          <div class="adw-search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="system-search-input" class="adw-search-input" placeholder="Buscar carpetas, formatos de archivos, dispositivos..." />
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="adw-btn flat btn-sys-filter active" data-filter="all">Todos</button>
+            <button class="adw-btn flat btn-sys-filter" data-filter="Carpetas">📁 Carpetas</button>
+            <button class="adw-btn flat btn-sys-filter" data-filter="Formatos de Archivo">📄 Formatos</button>
+            <button class="adw-btn flat btn-sys-filter" data-filter="Dispositivos">💾 Dispositivos</button>
+          </div>
+        </div>
+
+        <div class="scrollable-view">
+          <div id="system-grid" class="apps-grid">
+            <!-- System items inserted dynamically -->
           </div>
         </div>
       </section>

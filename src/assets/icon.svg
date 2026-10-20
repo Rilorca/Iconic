@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1e2e" />
+      <stop offset="50%" stop-color="#181825" />
+      <stop offset="100%" stop-color="#11111b" />
+    </linearGradient>
+
+    <!-- App Tile 1 Gradient (Emerald / Teal) -->
+    <linearGradient id="tile1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+
+    <!-- App Tile 2 Gradient (Violet / Magenta) -->
+    <linearGradient id="tile2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f857a6" />
+      <stop offset="100%" stop-color="#ff5858" />
+    </linearGradient>
+
+    <!-- App Tile 3 Gradient (Amber / Orange) -->
+    <linearGradient id="tile3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f6d365" />
+      <stop offset="100%" stop-color="#fda085" />
+    </linearGradient>
+
+    <!-- App Tile 4 Gradient (Royal Purple / Blue) -->
+    <linearGradient id="tile4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a18cd1" />
+      <stop offset="100%" stop-color="#fbc2eb" />
+    </linearGradient>
+
+    <!-- Central Mixer Sphere Gradient -->
+    <linearGradient id="mixerBall" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3584e4" />
+      <stop offset="100%" stop-color="#1c71d8" />
+    </linearGradient>
+
+    <!-- Shadow Filter -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+
+    <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base Frame (GNOME Adwaita Style) -->
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#bgGrad)" stroke="rgba(255,255,255,0.12)" stroke-width="4" filter="url(#dropShadow)" />
+
+  <!-- Subtle Inner Grid / Matrix Pattern -->
+  <g opacity="0.08" stroke="#ffffff" stroke-width="2">
+    <line x1="120" y1="64" x2="120" y2="448" />
+    <line x1="256" y1="64" x2="256" y2="448" />
+    <line x1="392" y1="64" x2="392" y2="448" />
+    <line x1="64" y1="120" x2="448" y2="120" />
+    <line x1="64" y1="256" x2="448" y2="256" />
+    <line x1="64" y1="392" x2="448" y2="392" />
+  </g>
+
+  <!-- 4 App Icon Tiles Representing Different Themes -->
+  <!-- Top Left Tile -->
+  <g filter="url(#tileShadow)">
+    <rect x="90" y="90" width="128" height="128" rx="32" fill="url(#tile1)" />
+    <!-- Symbolic Compass / Browser Icon -->
+    <circle cx="154" cy="154" r="34" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.9" />
+    <polygon points="154,132 166,154 154,176 142,154" fill="#ffffff" />
+  </g>
+
+  <!-- Top Right Tile -->
+  <g filter="url(#tileShadow)">
+    <rect x="294" y="90" width="128" height="128" rx="32" fill="url(#tile2)" />
+    <!-- Symbolic Music Note / Player Icon -->
+    <path d="M346,172 C346,180 338,186 330,186 C322,186 316,180 316,172 C316,164 322,158 330,158 C334,158 338,160 341,163 L341,130 L376,122 L376,146 L346,154 Z" fill="#ffffff" />
+  </g>
+
+  <!-- Bottom Left Tile -->
+  <g filter="url(#tileShadow)">
+    <rect x="90" y="294" width="128" height="128" rx="32" fill="url(#tile3)" />
+    <!-- Symbolic Terminal / Code Icon -->
+    <path d="M130,344 L150,358 L130,372" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+    <line x1="160" y1="372" x2="182" y2="372" stroke="#ffffff" stroke-width="8" stroke-linecap="round" />
+  </g>
+
+  <!-- Bottom Right Tile -->
+  <g filter="url(#tileShadow)">
+    <rect x="294" y="294" width="128" height="128" rx="32" fill="url(#tile4)" />
+    <!-- Symbolic Chat / Communication Icon -->
+    <path d="M334,334 C334,322 346,312 360,312 C374,312 386,322 386,334 C386,346 374,356 360,356 C354,356 348,354 344,350 L330,354 L334,342 C334,339 334,336 334,334 Z" fill="#ffffff" />
+  </g>
+
+  <!-- Mixer Dynamic Swirl / Orbit Rings Connecting Them -->
+  <g fill="none" stroke="url(#mixerBall)" stroke-width="7" opacity="0.85">
+    <path d="M 154 218 C 154 280, 220 280, 256 256" stroke-dasharray="8 6" />
+    <path d="M 358 218 C 358 280, 292 280, 256 256" stroke-dasharray="8 6" />
+    <path d="M 154 294 C 154 240, 220 240, 256 256" stroke-dasharray="8 6" />
+    <path d="M 358 294 C 358 240, 292 240, 256 256" stroke-dasharray="8 6" />
+  </g>
+
+  <!-- Central Mixer Badge: Magic Wand / Swapper -->
+  <circle cx="256" cy="256" r="54" fill="#181825" stroke="#3584e4" stroke-width="5" filter="url(#tileShadow)" />
+  <circle cx="256" cy="256" r="42" fill="url(#mixerBall)" />
+  
+  <!-- Magic Palette / Mixer Icon at Center -->
+  <path d="M242,238 C242,234 246,230 250,230 C254,230 258,234 258,238 C258,242 254,246 250,246 C246,246 242,242 242,238 Z M268,246 C268,242 272,238 276,238 C280,238 284,242 284,246 C284,250 280,254 276,254 C272,254 268,250 268,246 Z M240,262 C240,258 244,254 248,254 C252,254 256,258 256,262 C256,266 252,270 248,270 C244,270 240,266 240,262 Z M262,276 C268,276 272,272 272,266 C272,260 278,256 284,256 C288,256 292,260 292,264 C292,278 276,286 262,286 C240,286 226,270 226,254 C226,238 240,224 258,224 C276,224 290,236 290,250" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" />
+</svg>

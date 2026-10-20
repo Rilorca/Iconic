@@ -31,6 +31,16 @@ pub struct AppEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SystemItem {
+    pub id: String,
+    pub name: String,
+    pub category: String, // "Carpetas", "Tipos de Archivo", "Dispositivos", "Acciones"
+    pub icon_name: String,
+    pub description: String,
+    pub context: String, // "places", "mimetypes", "devices", "actions"
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ThemeIconMatch {
     pub theme_id: String,
     pub theme_name: String,
@@ -38,6 +48,7 @@ pub struct ThemeIconMatch {
     pub icon_format: String, // "svg" or "png"
     pub icon_data: String,   // base64 data uri
     pub target_app_icon: Option<String>, // The icon name expected by the .desktop file
+    pub size: Option<String>,        // "Vector (Scalable)" or "48x48", "128x128", etc.
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -156,6 +167,38 @@ fn file_to_data_uri(path: &Path) -> Option<String> {
     let bytes = fs::read(path).ok()?;
     let encoded = BASE64.encode(&bytes);
     Some(format!("data:{};base64,{}", mime, encoded))
+}
+
+// Helper: extract image pixel dimensions (or "Scalable" for SVG)
+fn get_icon_dimensions(path: &Path) -> String {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    if ext == "svg" {
+        return "Vectorial (SVG)".to_string();
+    }
+    if ext == "png" {
+        if let Ok(mut f) = fs::File::open(path) {
+            use std::io::Read;
+            let mut header = [0u8; 24];
+            if f.read_exact(&mut header).is_ok() && &header[0..8] == b"\x89PNG\r\n\x1a\n" {
+                let w = u32::from_be_bytes([header[16], header[17], header[18], header[19]]);
+                let h = u32::from_be_bytes([header[20], header[21], header[22], header[23]]);
+                return format!("{}x{}", w, h);
+            }
+        }
+    }
+    
+    // Check directory name hints like 48x48, 128x128, etc.
+    let path_str = path.to_string_lossy();
+    for seg in path_str.split('/') {
+        if seg.contains('x') {
+            let parts: Vec<&str> = seg.split('x').collect();
+            if parts.len() == 2 && parts[0].chars().all(|c| c.is_ascii_digit()) && parts[1].chars().all(|c| c.is_ascii_digit()) {
+                return seg.to_string();
+            }
+        }
+    }
+
+    "Raster".to_string()
 }
 
 // Helper to parse simple key-value ini/desktop file
@@ -451,14 +494,16 @@ fn find_icons_in_all_themes(icon_name: String) -> Result<Vec<ThemeIconMatch>, St
                 .unwrap_or("png")
                 .to_lowercase();
             if let Some(data) = file_to_data_uri(&found_path) {
-                    matches.push(ThemeIconMatch {
-                        theme_id: theme.id,
-                        theme_name: theme.name,
-                        icon_path: found_path.to_string_lossy().to_string(),
-                        icon_format: format,
-                        icon_data: data,
-                        target_app_icon: Some(icon_name.clone()),
-                    });
+                let size_str = get_icon_dimensions(&found_path);
+                matches.push(ThemeIconMatch {
+                    theme_id: theme.id,
+                    theme_name: theme.name,
+                    icon_path: found_path.to_string_lossy().to_string(),
+                    icon_format: format,
+                    icon_data: data,
+                    target_app_icon: Some(icon_name.clone()),
+                    size: Some(size_str),
+                });
             }
         }
     }
@@ -512,22 +557,60 @@ fn export_mixed_theme(
     let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
     let target_dir = home.join(".local/share/icons").join(&target_theme_id);
 
-    // Create target dir and subdirs
-    let scalable_dir = target_dir.join("scalable/apps");
-    let fallback_dir = target_dir.join("256x256/apps");
+    // Subdirectories for all Freedesktop categories
+    let subdirs = [
+        "apps", "places", "mimetypes", "devices", "status", "actions", "categories"
+    ];
 
-    // Clean previous icons in this theme to ensure newly removed or updated icons take effect
-    if scalable_dir.exists() {
-        let _ = fs::remove_dir_all(&scalable_dir);
-    }
-    if fallback_dir.exists() {
-        let _ = fs::remove_dir_all(&fallback_dir);
+    for sub in &subdirs {
+        let sc_dir = target_dir.join(format!("scalable/{}", sub));
+        let fb_dir = target_dir.join(format!("256x256/{}", sub));
+        if sc_dir.exists() {
+            let _ = fs::remove_dir_all(&sc_dir);
+        }
+        if fb_dir.exists() {
+            let _ = fs::remove_dir_all(&fb_dir);
+        }
+        fs::create_dir_all(&sc_dir)
+            .map_err(|e| format!("Failed to create directory {:?}: {}", sc_dir, e))?;
+        fs::create_dir_all(&fb_dir)
+            .map_err(|e| format!("Failed to create directory {:?}: {}", fb_dir, e))?;
     }
 
-    fs::create_dir_all(&scalable_dir)
-        .map_err(|e| format!("Failed to create directory {:?}: {}", scalable_dir, e))?;
-    fs::create_dir_all(&fallback_dir)
-        .map_err(|e| format!("Failed to create directory {:?}: {}", fallback_dir, e))?;
+    let dir_list = subdirs
+        .iter()
+        .map(|s| format!("scalable/{},256x256/{}", s, s))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let mut section_defs = String::new();
+    for sub in &subdirs {
+        section_defs.push_str(&format!(
+r#"[scalable/{sub}]
+Size=128
+Context={ctx}
+Type=Scalable
+MinSize=16
+MaxSize=512
+
+[256x256/{sub}]
+Size=256
+Context={ctx}
+Type=Threshold
+
+"#,
+            sub = sub,
+            ctx = match *sub {
+                "apps" => "Applications",
+                "places" => "Places",
+                "mimetypes" => "MimeTypes",
+                "devices" => "Devices",
+                "status" => "Status",
+                "actions" => "Actions",
+                _ => "Applications",
+            }
+        ));
+    }
 
     // Write index.theme
     let theme_content = format!(
@@ -535,22 +618,13 @@ r#"[Icon Theme]
 Name={name}
 Comment=Custom Icon Mixer theme based on {base}
 Inherits={base},hicolor
-Directories=scalable/apps,256x256/apps
+Directories={directories}
 
-[scalable/apps]
-Size=128
-Context=Applications
-Type=Scalable
-MinSize=16
-MaxSize=512
-
-[256x256/apps]
-Size=256
-Context=Applications
-Type=Threshold
-"#,
+{sections}"#,
         name = target_theme_name,
-        base = base_theme_id
+        base = base_theme_id,
+        directories = dir_list,
+        sections = section_defs
     );
 
     let index_file = target_dir.join("index.theme");
@@ -569,10 +643,29 @@ Type=Threshold
             .file_name()
             .ok_or_else(|| "Invalid icon path".to_string())?;
 
-        let dest = if ov.icon_format == "svg" {
-            scalable_dir.join(file_name)
+        // Detect category context (places, mimetypes, devices, status, actions, or default apps)
+        let src_str = src_path.to_string_lossy();
+        let sub = if src_str.contains("/places") || ov.target_app_icon.as_deref().unwrap_or("").starts_with("folder") || ov.target_app_icon.as_deref().unwrap_or("").starts_with("user-") {
+            "places"
+        } else if src_str.contains("/mimetypes") || ov.target_app_icon.as_deref().unwrap_or("").contains("application-") || ov.target_app_icon.as_deref().unwrap_or("").contains("text-") || ov.target_app_icon.as_deref().unwrap_or("").contains("video-") || ov.target_app_icon.as_deref().unwrap_or("").contains("audio-") || ov.target_app_icon.as_deref().unwrap_or("").contains("image-") {
+            "mimetypes"
+        } else if src_str.contains("/devices") || ov.target_app_icon.as_deref().unwrap_or("").starts_with("drive-") || ov.target_app_icon.as_deref().unwrap_or("").starts_with("media-") || ov.target_app_icon.as_deref().unwrap_or("").starts_with("input-") {
+            "devices"
+        } else if src_str.contains("/actions") {
+            "actions"
+        } else if src_str.contains("/status") {
+            "status"
         } else {
-            fallback_dir.join(file_name)
+            "apps"
+        };
+
+        let target_sub_scalable = target_dir.join(format!("scalable/{}", sub));
+        let target_sub_fallback = target_dir.join(format!("256x256/{}", sub));
+
+        let dest = if ov.icon_format == "svg" {
+            target_sub_scalable.join(file_name)
+        } else {
+            target_sub_fallback.join(file_name)
         };
 
         if let Err(e) = fs::copy(&src_path, &dest) {
@@ -581,14 +674,14 @@ Type=Threshold
             copied_count += 1;
         }
 
-        // Also copy under target_app_icon if different (e.g. brave-browser.desktop expects brave-desktop or brave-browser)
+        // Also copy under target_app_icon if different (e.g. brave-browser expects brave-desktop, folder-download expects folder-downloads)
         if let Some(ref target_icon) = ov.target_app_icon {
             let target_file_name = format!("{}.{}", target_icon, ov.icon_format);
             if target_file_name != file_name.to_string_lossy() {
                 let alias_dest = if ov.icon_format == "svg" {
-                    scalable_dir.join(&target_file_name)
+                    target_sub_scalable.join(&target_file_name)
                 } else {
-                    fallback_dir.join(&target_file_name)
+                    target_sub_fallback.join(&target_file_name)
                 };
                 let _ = fs::copy(&src_path, &alias_dest);
             }
@@ -745,27 +838,256 @@ fn load_mixed_theme_overrides(theme_id: String) -> Result<MixProfile, String> {
     })
 }
 
-// Delete custom mixed theme
+// List standard system items (Folders, MimeTypes, Devices, Actions)
 #[tauri::command]
-fn delete_mixed_theme(theme_id: String) -> Result<String, String> {
-    let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
-    let target_dir = home.join(".local/share/icons").join(&theme_id);
+fn list_system_items() -> Result<Vec<SystemItem>, String> {
+    let items = vec![
+        // Places / Folders
+        SystemItem {
+            id: "folder".to_string(),
+            name: "Carpeta Estándar".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder".to_string(),
+            description: "Icono por defecto para cualquier directorio".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "folder-download".to_string(),
+            name: "Descargas".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder-download".to_string(),
+            description: "Directorio ~/Descargas".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "folder-documents".to_string(),
+            name: "Documentos".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder-documents".to_string(),
+            description: "Directorio ~/Documentos".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "folder-music".to_string(),
+            name: "Música".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder-music".to_string(),
+            description: "Directorio ~/Música".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "folder-pictures".to_string(),
+            name: "Imágenes".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder-pictures".to_string(),
+            description: "Directorio ~/Imágenes / Fotos".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "folder-videos".to_string(),
+            name: "Vídeos".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "folder-videos".to_string(),
+            description: "Directorio ~/Vídeos / Películas".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "user-home".to_string(),
+            name: "Carpeta Personal (Home)".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "user-home".to_string(),
+            description: "Carpeta de inicio del usuario (~/)".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "user-desktop".to_string(),
+            name: "Escritorio".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "user-desktop".to_string(),
+            description: "Directorio ~/Escritorio".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "user-trash".to_string(),
+            name: "Papelera (Vacía)".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "user-trash".to_string(),
+            description: "Papelera de reciclaje vacía".to_string(),
+            context: "places".to_string(),
+        },
+        SystemItem {
+            id: "user-trash-full".to_string(),
+            name: "Papelera (Llena)".to_string(),
+            category: "Carpetas".to_string(),
+            icon_name: "user-trash-full".to_string(),
+            description: "Papelera de reciclaje cuando contiene archivos".to_string(),
+            context: "places".to_string(),
+        },
 
-    if target_dir.exists() {
-        // Safety check: ensure it is a Custom Icon Mixer theme before deleting
-        let index_file = target_dir.join("index.theme");
-        if index_file.exists() {
-            let content = fs::read_to_string(&index_file).unwrap_or_default();
-            if content.contains("Custom Icon Mixer theme") {
-                fs::remove_dir_all(&target_dir)
-                    .map_err(|e| format!("Failed to delete theme: {}", e))?;
-                return Ok(format!("Theme '{}' deleted successfully", theme_id));
-            }
-        }
-        return Err("Only custom Icon Mixer themes can be deleted".to_string());
-    }
-    Err("Theme directory not found".to_string())
+        // MimeTypes / Formatos de Archivos
+        SystemItem {
+            id: "text-plain".to_string(),
+            name: "Documento de Texto (.txt)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "text-plain".to_string(),
+            description: "Archivos de texto sin formato".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "application-pdf".to_string(),
+            name: "Documento PDF (.pdf)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "application-pdf".to_string(),
+            description: "Archivos PDF portables".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "application-zip".to_string(),
+            name: "Archivo Comprimido (.zip)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "application-zip".to_string(),
+            description: "Archivos comprimidos ZIP / RAR / 7Z".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "audio-x-generic".to_string(),
+            name: "Archivo de Audio (.mp3, .flac, .wav)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "audio-x-generic".to_string(),
+            description: "Pistas y canciones de audio".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "video-x-generic".to_string(),
+            name: "Archivo de Vídeo (.mp4, .mkv, .avi)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "video-x-generic".to_string(),
+            description: "Archivos multimedia de vídeo".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "image-x-generic".to_string(),
+            name: "Archivo de Imagen (.png, .jpg, .webp)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "image-x-generic".to_string(),
+            description: "Imágenes y gráficos de mapa de bits".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "text-x-python".to_string(),
+            name: "Código Python (.py)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "text-x-python".to_string(),
+            description: "Scripts de programación Python".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "text-x-rust".to_string(),
+            name: "Código Rust (.rs)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "text-x-rust".to_string(),
+            description: "Archivos de código fuente en Rust".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "text-x-javascript".to_string(),
+            name: "Código JavaScript (.js, .ts)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "text-x-javascript".to_string(),
+            description: "Scripts de programación JavaScript / TypeScript".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "text-html".to_string(),
+            name: "Página Web (.html, .htm)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "text-html".to_string(),
+            description: "Documentos web en HTML".to_string(),
+            context: "mimetypes".to_string(),
+        },
+        SystemItem {
+            id: "package-x-generic".to_string(),
+            name: "Paquete Instalador (.deb, .rpm, .tar.gz)".to_string(),
+            category: "Formatos de Archivo".to_string(),
+            icon_name: "package-x-generic".to_string(),
+            description: "Paquetes de software para Linux".to_string(),
+            context: "mimetypes".to_string(),
+        },
+
+        // Devices / Dispositivos
+        SystemItem {
+            id: "drive-harddisk".to_string(),
+            name: "Disco Duro / SSD".to_string(),
+            category: "Dispositivos".to_string(),
+            icon_name: "drive-harddisk".to_string(),
+            description: "Unidades de almacenamiento internas".to_string(),
+            context: "devices".to_string(),
+        },
+        SystemItem {
+            id: "drive-removable-media".to_string(),
+            name: "Memoria USB / Pendrive".to_string(),
+            category: "Dispositivos".to_string(),
+            icon_name: "drive-removable-media".to_string(),
+            description: "Dispositivos de almacenamiento extraíbles".to_string(),
+            context: "devices".to_string(),
+        },
+        SystemItem {
+            id: "printer".to_string(),
+            name: "Impresora".to_string(),
+            category: "Dispositivos".to_string(),
+            icon_name: "printer".to_string(),
+            description: "Impresoras y dispositivos de impresión".to_string(),
+            context: "devices".to_string(),
+        },
+    ];
+
+    Ok(items)
 }
+
+// Open folder containing icon theme in system file manager (Nautilus, Dolphin, Thunar, etc.)
+#[tauri::command]
+fn open_theme_folder(theme_path: String) -> Result<String, String> {
+    let p = PathBuf::from(&theme_path);
+    if !p.exists() {
+        return Err("Theme path does not exist".to_string());
+    }
+
+    let _ = std::process::Command::new("xdg-open")
+        .arg(&theme_path)
+        .spawn()
+        .map_err(|e| format!("Failed to open file manager: {}", e))?;
+
+    Ok(format!("Opened folder: {}", theme_path))
+}
+
+// Delete icon theme (user themes are removed, system themes prompt or inform)
+#[tauri::command]
+fn delete_icon_theme(theme_path: String) -> Result<String, String> {
+    let p = PathBuf::from(&theme_path);
+    if !p.exists() {
+        return Err("Theme folder not found".to_string());
+    }
+
+    let home = dirs::home_dir().ok_or_else(|| "Could not find home directory".to_string())?;
+
+    if p.starts_with(&home) {
+        fs::remove_dir_all(&p).map_err(|e| format!("Failed to delete theme directory: {}", e))?;
+        Ok(format!("Theme at {:?} deleted successfully", p))
+    } else {
+        // System directory: require root permissions
+        let status = std::process::Command::new("pkexec")
+            .args(["rm", "-rf", p.to_str().unwrap()])
+            .status()
+            .map_err(|e| format!("Failed to invoke pkexec: {}", e))?;
+
+        if status.success() {
+            Ok(format!("System theme at {:?} deleted with administrator privileges", p))
+        } else {
+            Err("Permission denied or authorization cancelled to delete system theme".to_string())
+        }
+    }
+}
+
 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -775,13 +1097,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             list_icon_themes,
             list_applications,
+            list_system_items,
             resolve_app_icon,
             find_icons_in_all_themes,
             get_current_desktop_theme,
             set_current_desktop_theme,
             export_mixed_theme,
             load_mixed_theme_overrides,
-            delete_mixed_theme,
+            open_theme_folder,
+            delete_icon_theme,
             override_single_app_icon,
             restore_single_app_icon
         ])
@@ -909,6 +1233,7 @@ Context=Applications
             icon_format: "svg".to_string(),
             icon_data: "data:image/svg+xml;base64,...".to_string(),
             target_app_icon: Some("test_icon_source".to_string()),
+            size: Some("Vectorial (SVG)".to_string()),
         };
 
         let result = export_mixed_theme(

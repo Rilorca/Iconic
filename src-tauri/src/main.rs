@@ -13,6 +13,10 @@ fn main() {
     if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
         std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     }
+    // Ensure native GTK window titlebar matches dark theme by default
+    if std::env::var("GTK_THEME").is_err() {
+        std::env::set_var("GTK_THEME", "Adwaita:dark");
+    }
 
     tauri_app_lib::run()
 }
