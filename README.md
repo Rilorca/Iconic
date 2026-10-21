@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="#why-iconic">Why Iconic?</a> •
+  <a href="#screenshots">Screenshots</a> •
   <a href="#features">Features</a> •
   <a href="#architecture">Architecture</a> •
   <a href="#installation">Installation</a> •
@@ -40,6 +41,21 @@ Whether it's modern browsers like *Zen Browser*, Discord clients like *Vesktop* 
 - 📦 **Non-Destructive Inheritance:** Creates clean, standard overlay themes in `~/.local/share/icons/` (`Inherits = <base_theme>`) without ever touching root directories or mutating original icon packs.
 - 🚀 **Instant GTK Cache Invalidation:** Automatically runs `gtk-update-icon-cache` upon export and signals the desktop environment to reload icons instantly—no logouts or reboots needed.
 - 🗂️ **Icon Pack Management:** Browse all installed system and user icon packs, open their container folders in your default file manager, or cleanly delete unwanted packs with one click.
+
+---
+
+## Screenshots
+
+<div align="center">
+  <h3>Universal Application & Desktop Entry Discovery</h3>
+  <img src="docs/screenshots/main-view.png" alt="Iconic Main View" width="88%">
+  <p><em>Browse native packages, Flatpaks, Snaps, and user desktop entries in a modern GNOME Adwaita grid with instant search and status badges.</em></p>
+  <br>
+
+  <h3>Granular Icon Picker & Cross-Application Search</h3>
+  <img src="docs/screenshots/icon-picker.png" alt="Iconic Icon Picker" width="88%">
+  <p><em>Inspect icon variants across every installed theme with vector (SVG) and pixel resolution indicators, or borrow icons from other applications.</em></p>
+</div>
 
 ---
 
