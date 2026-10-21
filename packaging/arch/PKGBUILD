@@ -1,0 +1,32 @@
+# Maintainer: Rodrigo Lorca <https://github.com/Rilorca>
+pkgname=iconic-bin
+_pkgname=iconic
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Universal Linux Icon Customizer & Theme Blender"
+arch=('x86_64')
+url="https://github.com/Rilorca/iconic"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'libsoup3' 'openssl')
+provides=('iconic')
+conflicts=('iconic')
+options=('!strip')
+
+package() {
+  install -Dm755 "${startdir}/../../src-tauri/target/release/iconic" "${pkgdir}/usr/bin/iconic"
+  install -Dm644 "${startdir}/../../src-tauri/icons/512x512.png" "${pkgdir}/usr/share/icons/hicolor/512x512/apps/io.github.rilorca.Iconic.png"
+  install -Dm644 "${startdir}/../../src/assets/icon.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/io.github.rilorca.Iconic.svg"
+  
+  install -d "${pkgdir}/usr/share/applications"
+  cat << 'DESKTOP' > "${pkgdir}/usr/share/applications/io.github.rilorca.Iconic.desktop"
+[Desktop Entry]
+Name=Iconic
+Comment=Custom Icon Mixer & Theme Blender for Linux Desktop
+Exec=iconic
+Icon=io.github.rilorca.Iconic
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+StartupWMClass=iconic
+DESKTOP
+}

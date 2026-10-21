@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "iconic",
   "version": "0.1.0",
-  "identifier": "com.iconmixer.app",
+  "identifier": "io.github.rilorca.Iconic",
   "build": {
     "frontendDist": "../src"
   },
@@ -10,7 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Icon Mixer",
+        "title": "Iconic",
         "width": 1050,
         "height": 720,
         "minWidth": 800,

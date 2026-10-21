@@ -616,7 +616,7 @@ Type=Threshold
     let theme_content = format!(
 r#"[Icon Theme]
 Name={name}
-Comment=Custom Icon Mixer theme based on {base}
+Comment=Custom Iconic theme based on {base}
 Inherits={base},hicolor
 Directories={directories}
 
@@ -1219,8 +1219,8 @@ Context=Applications
 
     #[test]
     fn test_export_mixed_theme_generation() {
-        let temp_theme_id = "test-icon-mixer-temp";
-        let temp_theme_name = "Test Icon Mixer Theme";
+        let temp_theme_id = "test-iconic-temp";
+        let temp_theme_name = "Test Iconic Theme";
         let base_theme = "hicolor";
 
         let sample_svg = std::env::temp_dir().join("test_icon_source.svg");

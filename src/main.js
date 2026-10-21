@@ -564,7 +564,7 @@ function renderThemes() {
 
   filtered.forEach((t) => {
     const isCurrent = t.id === appState.currentSysTheme;
-    const isCustomMixer = t.comment && t.comment.includes('Custom Icon Mixer theme');
+    const isCustomMixer = t.comment && (t.comment.includes('Custom Iconic theme') || t.comment.includes('Custom Icon Mixer theme'));
 
     const card = document.createElement('div');
     card.className = `adw-app-card ${isCurrent ? 'has-override' : ''}`;

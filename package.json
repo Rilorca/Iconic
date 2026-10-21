@@ -1,5 +1,5 @@
 {
-  "name": "tauri-app",
+  "name": "iconic",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,6 +7,8 @@
     "tauri": "tauri",
     "dev": "WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
     "dev:x11": "GDK_BACKEND=x11 tauri dev",
+    "build": "tauri build",
+    "build:arch": "cd packaging/arch && makepkg -f -d",
     "test": "cd src-tauri && cargo test"
   },
   "devDependencies": {
