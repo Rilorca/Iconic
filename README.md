@@ -25,14 +25,15 @@
 
 ## Why Iconic?
 
-On Linux, desktop personalization is unmatched, but icon theming has always suffered from a classic problem: **you find an icon pack you love, but a handful of application icons are missing, outdated, or downright unappealing**. 
+On Linux, desktop personalization is unmatched, but icon theming has always suffered from a classic problem: **you find an icon pack you love, but a handful of application icons are missing, outdated, or downright unappealing**.
 
-Whether it's modern browsers like *Zen Browser*, Discord clients like *Vesktop* or *Equibop*, media players like *Sonora*, or custom Flatpaks and Snaps, fixing icons previously required:
+Whether it's modern browsers like _Zen Browser_, Discord clients like _Vesktop_ or _Equibop_, media players like _Sonora_, or custom Flatpaks and Snaps, fixing icons previously required:
+
 - Manually editing `.desktop` files in `/usr/share/applications` (which get overwritten on every package update),
 - Manually copying SVG files into deep directory structures (`~/.local/share/icons/<theme>/<size>/apps/`), or
 - Living with inconsistent desktop visuals.
 
-**Iconic solves this permanently.** Built with native GNOME Adwaita aesthetics and powered by an ultra-fast Rust core:
+**Iconic solves this permanently.** Built with native Adwaita aesthetics and powered by an ultra-fast Rust core:
 
 - 🎨 **Mix & Match with Total Freedom:** Love Papirus overall, but prefer WhiteSur's folder icons and Tela's media icons? Cherry-pick individual icons per app, folder, or file type with visual resolution previews.
 - 🔄 **Cross-Application Icon Borrowing:** Assign any application's icon variants to another. For example, give Discord's official theme icon to Equibop or Vesktop, or Spotify's icon to Sonora.
@@ -49,7 +50,7 @@ Whether it's modern browsers like *Zen Browser*, Discord clients like *Vesktop* 
 <div align="center">
   <h3>Universal Application & Desktop Entry Discovery</h3>
   <img src="docs/screenshots/main-view.png" alt="Iconic Main View" width="88%">
-  <p><em>Browse native packages, Flatpaks, Snaps, and user desktop entries in a modern GNOME Adwaita grid with instant search and status badges.</em></p>
+  <p><em>Browse native packages, Flatpaks, Snaps, and user desktop entries in a modern  Adwaita grid with instant search and status badges.</em></p>
   <br>
 
   <h3>Granular Icon Picker & Cross-Application Search</h3>
@@ -75,11 +76,11 @@ Whether it's modern browsers like *Zen Browser*, Discord clients like *Vesktop* 
 
 Iconic is built with a lightweight, secure hybrid architecture:
 
-| Component | Technology | Role |
-| :--- | :--- | :--- |
-| **Frontend UI** | HTML5 + CSS3 + Vanilla JavaScript | Modern Libadwaita styling, fast rendering without heavy framework overhead, responsive modal dialogs, and progress tracking. |
-| **Backend Core** | Rust + Tauri v2 | High-performance multithreaded XDG discovery, `.desktop` and `index.theme` parsing, safe file operations, and GTK cache compilation. |
-| **Desktop Integration** | Freedesktop Standards | Non-destructive `Inherits` theme layering in `~/.local/share/icons/`, `gtk-update-icon-cache` invalidation, and `xdg-open` file manager integration. |
+| Component               | Technology                        | Role                                                                                                                                                 |
+| :---------------------- | :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend UI**         | HTML5 + CSS3 + Vanilla JavaScript | Modern Libadwaita styling, fast rendering without heavy framework overhead, responsive modal dialogs, and progress tracking.                         |
+| **Backend Core**        | Rust + Tauri v2                   | High-performance multithreaded XDG discovery, `.desktop` and `index.theme` parsing, safe file operations, and GTK cache compilation.                 |
+| **Desktop Integration** | Freedesktop Standards             | Non-destructive `Inherits` theme layering in `~/.local/share/icons/`, `gtk-update-icon-cache` invalidation, and `xdg-open` file manager integration. |
 
 ---
 
@@ -90,12 +91,12 @@ Iconic is built with a lightweight, secure hybrid architecture:
 > [!TIP]
 > **No terminal required!** You can install Iconic simply by downloading the installer package for your Linux distribution from [GitHub Releases](https://github.com/Rilorca/iconic/releases) and **double-clicking** it to open your desktop's graphical Software center.
 
-| Distribution | Package | Graphical 1-Click Install | Terminal Command (Optional) |
-| :--- | :--- | :--- | :--- |
-| **Ubuntu / Debian / Mint / Pop!_OS** | `.deb` | Double-click `Iconic_0.1.0_amd64.deb` → Click **Install** | `sudo apt install ./Iconic_0.1.0_amd64.deb` |
-| **Fedora / RHEL / Nobara** | `.rpm` | Double-click `Iconic-0.1.0-1.x86_64.rpm` → Click **Install** | `sudo dnf install ./Iconic-0.1.0-1.x86_64.rpm` |
-| **Arch / Manjaro / CachyOS** | `.pkg.tar.zst` | Double-click `iconic-0.1.0-1-x86_64.pkg.tar.zst` in Pamac / Software | `sudo pacman -U ./iconic-0.1.0-1-x86_64.pkg.tar.zst` |
-| **Any Linux (No Install Needed)** | `AppImage` | Right-click `Iconic_*.AppImage` → **Properties** → check **"Allow executing"** → Double-click to run | `chmod +x Iconic_*.AppImage && ./Iconic_*.AppImage` |
+| Distribution                          | Package        | Graphical 1-Click Install                                                                            | Terminal Command (Optional)                          |
+| :------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
+| **Ubuntu / Debian / Mint / Pop!\_OS** | `.deb`         | Double-click `Iconic_0.1.0_amd64.deb` → Click **Install**                                            | `sudo apt install ./Iconic_0.1.0_amd64.deb`          |
+| **Fedora / RHEL / Nobara**            | `.rpm`         | Double-click `Iconic-0.1.0-1.x86_64.rpm` → Click **Install**                                         | `sudo dnf install ./Iconic-0.1.0-1.x86_64.rpm`       |
+| **Arch / Manjaro / CachyOS**          | `.pkg.tar.zst` | Double-click `iconic-0.1.0-1-x86_64.pkg.tar.zst` in Pamac / Software                                 | `sudo pacman -U ./iconic-0.1.0-1-x86_64.pkg.tar.zst` |
+| **Any Linux (No Install Needed)**     | `AppImage`     | Right-click `Iconic_*.AppImage` → **Properties** → check **"Allow executing"** → Double-click to run | `chmod +x Iconic_*.AppImage && ./Iconic_*.AppImage`  |
 
 ---
 
@@ -111,6 +112,7 @@ Compiling from source builds the optimized native binary and automatically insta
 ```sh
 sudo pacman -S --needed base-devel nodejs npm cargo rust webkit2gtk-4.1 gtk3 libsoup3
 ```
+
 </details>
 
 <details>
@@ -119,6 +121,7 @@ sudo pacman -S --needed base-devel nodejs npm cargo rust webkit2gtk-4.1 gtk3 lib
 ```sh
 sudo dnf install nodejs npm cargo rust webkit2gtk4.1-devel gtk3-devel libsoup3-devel openssl-devel
 ```
+
 </details>
 
 <details>
@@ -128,6 +131,7 @@ sudo dnf install nodejs npm cargo rust webkit2gtk4.1-devel gtk3-devel libsoup3-d
 sudo apt update
 sudo apt install -y nodejs npm cargo rustc libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev build-essential libssl-dev
 ```
+
 </details>
 
 #### 2. Automatic Build & Install
@@ -140,7 +144,7 @@ cd iconic
 ./install.sh
 ```
 
-*(Tip: For Arch-based distros, you can alternatively run `npm run build:arch` to produce an official `.pkg.tar.zst` package)*.
+_(Tip: For Arch-based distros, you can alternatively run `npm run build:arch` to produce an official `.pkg.tar.zst` package)_.
 
 <details>
 <summary><b>Manual Step-by-Step Installation (Alternative)</b></summary>
@@ -178,13 +182,15 @@ EOF
 update-desktop-database ~/.local/share/applications
 gtk-update-icon-cache -f -t ~/.local/share/icons/hicolor 2>/dev/null || true
 ```
+
 </details>
 
-*Tip: Make sure `~/.local/bin` is in your `$PATH` (standard on all modern distributions). You can now launch **Iconic** directly from your application launcher or terminal.*
+_Tip: Make sure `~/.local/bin` is in your `$PATH` (standard on all modern distributions). You can now launch **Iconic** directly from your application launcher or terminal._
 
 #### System-Wide Installation (Optional)
 
 If you prefer to install for all users on the machine:
+
 ```sh
 sudo install -m 755 src-tauri/target/release/iconic /usr/local/bin/iconic
 sudo install -m 644 src-tauri/icons/512x512.png /usr/share/icons/hicolor/512x512/apps/io.github.rilorca.Iconic.png
@@ -241,7 +247,7 @@ To create a new release and build package bundles (.deb, .rpm, AppImage):
 - **Where are mixed themes stored?**  
   All mixed themes are non-destructively saved in `~/.local/share/icons/`. You can view, rename, or delete them anytime using Iconic's **Icon Packs** tab or in your file manager.
 - **How to apply the mixed theme globally?**  
-  Once exported, open your desktop settings (e.g., **GNOME Tweaks** on GNOME, **Appearance Settings** on XFCE, or **System Settings → Icons** on KDE Plasma) and select your newly exported theme name from the icon dropdown.
+  Once exported, open your desktop settings (e.g., ** Tweaks** on , **Appearance Settings** on XFCE, or **System Settings → Icons** on KDE Plasma) and select your newly exported theme name from the icon dropdown.
 
 ---
 
