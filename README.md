@@ -76,10 +76,10 @@ Iconic is built with a lightweight, secure hybrid architecture:
 
 | Distribution | Package | Graphical 1-Click Install | Terminal Command (Optional) |
 | :--- | :--- | :--- | :--- |
-| **Ubuntu / Debian / Mint / Pop!_OS** | `.deb` | Double-click `iconic_0.1.0_amd64.deb` → Click **Install** | `sudo apt install ./iconic_0.1.0_amd64.deb` |
-| **Fedora / RHEL / Nobara** | `.rpm` | Double-click `iconic-0.1.0-1.x86_64.rpm` → Click **Install** | `sudo dnf install ./iconic-0.1.0-1.x86_64.rpm` |
+| **Ubuntu / Debian / Mint / Pop!_OS** | `.deb` | Double-click `Iconic_0.1.0_amd64.deb` → Click **Install** | `sudo apt install ./Iconic_0.1.0_amd64.deb` |
+| **Fedora / RHEL / Nobara** | `.rpm` | Double-click `Iconic-0.1.0-1.x86_64.rpm` → Click **Install** | `sudo dnf install ./Iconic-0.1.0-1.x86_64.rpm` |
 | **Arch / Manjaro / CachyOS** | `.pkg.tar.zst` | Double-click `iconic-0.1.0-1-x86_64.pkg.tar.zst` in Pamac / Software | `sudo pacman -U ./iconic-0.1.0-1-x86_64.pkg.tar.zst` |
-| **Any Linux (No Install Needed)** | `AppImage` | Right-click `iconic_*.AppImage` → **Properties** → check **"Allow executing"** → Double-click to run | `chmod +x iconic_*.AppImage && ./iconic_*.AppImage` |
+| **Any Linux (No Install Needed)** | `AppImage` | Right-click `Iconic_*.AppImage` → **Properties** → check **"Allow executing"** → Double-click to run | `chmod +x Iconic_*.AppImage && ./Iconic_*.AppImage` |
 
 ---
 
