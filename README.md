@@ -166,11 +166,11 @@ install -m 644 src-tauri/icons/512x512.png ~/.local/share/icons/hicolor/512x512/
 
 # 4. Create desktop menu entry
 mkdir -p ~/.local/share/applications
-cat << 'EOF' > ~/.local/share/applications/io.github.rilorca.Iconic.desktop
+cat << EOF > ~/.local/share/applications/io.github.rilorca.Iconic.desktop
 [Desktop Entry]
 Name=Iconic
 Comment=Custom Icon Mixer & Theme Blender for Linux Desktop
-Exec=iconic
+Exec=$HOME/.local/bin/iconic
 Icon=io.github.rilorca.Iconic
 Terminal=false
 Type=Application

@@ -4,6 +4,8 @@ const invoke = window.__TAURI__.core ? window.__TAURI__.core.invoke : window.__T
 // Application State
 let appState = {
   currentSysTheme: '',
+  selectedBaseTheme: '',
+  tempSelectedBase: '',
   iconThemes: [],
   apps: [],
   systemItems: [],
@@ -21,7 +23,8 @@ let appState = {
 // UI Elements
 const els = {
   themeToggle: document.getElementById('btn-theme-toggle'),
-  currentSysTheme: document.getElementById('current-sys-theme'),
+  btnSelectBaseTheme: document.getElementById('btn-select-base-theme'),
+  headerBaseThemeName: document.getElementById('header-base-theme-name'),
   viewBtns: document.querySelectorAll('.adw-view-btn'),
   views: {
     'apps-view': document.getElementById('view-apps'),
@@ -56,10 +59,20 @@ const els = {
   // Mix View
   mixedThemeName: document.getElementById('mixed-theme-name'),
   mixedBaseSelect: document.getElementById('mixed-base-theme-select'),
+  btnMixChangeBase: document.getElementById('btn-mix-change-base'),
+  mixedBaseThemeLabel: document.getElementById('mixed-base-theme-label'),
   btnQuickSave: document.getElementById('btn-quick-save'),
   btnClearOverrides: document.getElementById('btn-clear-overrides'),
   mixGrid: document.getElementById('mix-grid'),
   mixEmptyPlaceholder: document.getElementById('mix-empty-placeholder'),
+
+  // Base Theme Selection Modal
+  baseThemeModal: document.getElementById('base-theme-modal'),
+  btnCloseBaseModal: document.getElementById('btn-close-base-modal'),
+  baseThemeSearch: document.getElementById('base-theme-search'),
+  baseThemesGrid: document.getElementById('base-themes-grid'),
+  baseSelectedHint: document.getElementById('base-selected-hint'),
+  btnConfirmBaseTheme: document.getElementById('btn-confirm-base-theme'),
 
   // Export Modal
   btnExportTheme: document.getElementById('btn-export-theme'),
@@ -116,12 +129,15 @@ async function init() {
   try {
     const currentTheme = await invoke('get_current_desktop_theme');
     appState.currentSysTheme = currentTheme;
-    els.currentSysTheme.textContent = `Tema actual: ${currentTheme}`;
+    if (els.currentSysTheme) {
+      els.currentSysTheme.textContent = `Tema actual: ${currentTheme}`;
+    }
   } catch (err) {
     console.warn('Failed to get current desktop theme:', err);
   }
 
   await loadIconThemes();
+  initializeBaseTheme();
   await loadApplications();
   await loadSystemItems();
 }
@@ -325,13 +341,186 @@ function setupEventListeners() {
       showToast('Selección de iconos vaciada');
     }
   });
+
+  // Base Theme Modal Actions
+  if (els.btnSelectBaseTheme) {
+    els.btnSelectBaseTheme.addEventListener('click', openBaseThemeModal);
+  }
+  if (els.btnMixChangeBase) {
+    els.btnMixChangeBase.addEventListener('click', openBaseThemeModal);
+  }
+  if (els.btnCloseBaseModal) {
+    els.btnCloseBaseModal.addEventListener('click', closeBaseThemeModal);
+  }
+  if (els.btnConfirmBaseTheme) {
+    els.btnConfirmBaseTheme.addEventListener('click', confirmBaseTheme);
+  }
+  if (els.baseThemeSearch) {
+    els.baseThemeSearch.addEventListener('input', (e) => {
+      renderBaseThemesGrid(e.target.value);
+    });
+  }
+  if (els.baseThemeModal) {
+    els.baseThemeModal.addEventListener('click', (e) => {
+      if (e.target === els.baseThemeModal) {
+        closeBaseThemeModal();
+      }
+    });
+  }
+}
+
+// Base Theme Management
+function openBaseThemeModal() {
+  appState.tempSelectedBase = appState.selectedBaseTheme || getDefaultBaseTheme();
+  renderBaseThemesGrid(els.baseThemeSearch ? els.baseThemeSearch.value : '');
+  if (els.baseThemeModal) {
+    els.baseThemeModal.classList.add('active');
+  }
+  if (els.baseThemeSearch) {
+    els.baseThemeSearch.focus();
+  }
+}
+
+function closeBaseThemeModal() {
+  if (els.baseThemeModal) {
+    els.baseThemeModal.classList.remove('active');
+  }
+}
+
+function getDefaultBaseTheme() {
+  const isCustom = (t) => t.comment && (t.comment.includes('Custom Iconic') || t.comment.includes('Custom Icon Mixer'));
+  const realThemes = appState.iconThemes.filter(t => !isCustom(t));
+  return realThemes.find(t => t.id === 'Papirus-Dark' || t.id === 'Papirus')?.id
+    || realThemes.find(t => t.id.toLowerCase().includes('papirus'))?.id
+    || realThemes.find(t => t.id.toLowerCase().includes('breeze'))?.id
+    || realThemes[0]?.id
+    || 'Papirus-Dark';
+}
+
+function renderBaseThemesGrid(searchFilter = '') {
+  if (!els.baseThemesGrid) return;
+  const query = searchFilter.toLowerCase().trim();
+  const isCustom = (t) => t.comment && (t.comment.includes('Custom Iconic') || t.comment.includes('Custom Icon Mixer'));
+
+  // Only show real icon themes as valid base themes (never custom mixes)
+  const realThemes = appState.iconThemes.filter(t => !isCustom(t));
+  const filtered = query
+    ? realThemes.filter(t => t.name.toLowerCase().includes(query) || t.id.toLowerCase().includes(query))
+    : realThemes;
+
+  els.baseThemesGrid.innerHTML = '';
+
+  if (filtered.length === 0) {
+    els.baseThemesGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 30px; color: var(--text-muted);">No se encontraron paquetes base con ese nombre</div>`;
+    updateBaseConfirmState();
+    return;
+  }
+
+  filtered.forEach(t => {
+    const isSelected = t.id === appState.tempSelectedBase;
+    const card = document.createElement('div');
+    card.className = `base-theme-card ${isSelected ? 'selected' : ''}`;
+    card.innerHTML = `
+      <div class="theme-icon">📦</div>
+      <div class="app-info">
+        <div class="app-name">${t.name}</div>
+        <div class="app-desc" style="font-size: 11px;">${t.comment || t.id}</div>
+        <div style="font-size: 10.5px; color: var(--text-muted); margin-top: 3px;">
+          ${t.is_user ? '👤 Instalado por usuario' : '🌐 Sistema (/usr)'}
+        </div>
+      </div>
+      ${isSelected ? '<span style="color: var(--accent); font-weight: bold; font-size: 18px; margin-left: auto;">✓</span>' : ''}
+    `;
+
+    card.addEventListener('click', () => {
+      appState.tempSelectedBase = t.id;
+      document.querySelectorAll('.base-theme-card').forEach(c => {
+        c.classList.remove('selected');
+        const check = c.querySelector('span[style*="font-size: 18px"]');
+        if (check) check.remove();
+      });
+      card.classList.add('selected');
+      card.insertAdjacentHTML('beforeend', '<span style="color: var(--accent); font-weight: bold; font-size: 18px; margin-left: auto;">✓</span>');
+      updateBaseConfirmState();
+    });
+
+    els.baseThemesGrid.appendChild(card);
+  });
+
+  updateBaseConfirmState();
+}
+
+function updateBaseConfirmState() {
+  if (!els.baseSelectedHint || !els.btnConfirmBaseTheme) return;
+  const selectedTheme = appState.iconThemes.find(t => t.id === appState.tempSelectedBase);
+  if (selectedTheme) {
+    els.baseSelectedHint.innerHTML = `Seleccionado: <b style="color: var(--accent);">${selectedTheme.name}</b>`;
+    els.btnConfirmBaseTheme.disabled = false;
+  } else {
+    els.baseSelectedHint.textContent = 'Selecciona un pack para continuar';
+    els.btnConfirmBaseTheme.disabled = true;
+  }
+}
+
+async function confirmBaseTheme() {
+  if (!appState.tempSelectedBase) return;
+  await applyBaseThemeSelection(appState.tempSelectedBase, true);
+  closeBaseThemeModal();
+}
+
+async function applyBaseThemeSelection(themeId, reloadPreviews = false) {
+  const previousBase = appState.selectedBaseTheme;
+  appState.selectedBaseTheme = themeId;
+  localStorage.setItem('iconic_selected_base_theme', themeId);
+
+  const themeObj = appState.iconThemes.find(t => t.id === themeId);
+  const themeName = themeObj ? themeObj.name : themeId;
+
+  if (els.headerBaseThemeName) {
+    els.headerBaseThemeName.textContent = themeName;
+  }
+  if (els.mixedBaseThemeLabel) {
+    els.mixedBaseThemeLabel.textContent = themeName;
+  }
+  if (els.mixedBaseSelect) {
+    els.mixedBaseSelect.value = themeId;
+  }
+  if (els.exportBaseSelect) {
+    els.exportBaseSelect.value = themeId;
+  }
+
+  if (reloadPreviews) {
+    showToast(`Pack base establecido: ${themeName}`);
+    if (previousBase !== themeId) {
+      appState.appIconMap.clear();
+      appState.systemIconMap.clear();
+      await loadAppsIconsBatch(appState.apps);
+      await loadSystemIconsBatch(appState.systemItems);
+      renderApps();
+      renderSystemItems();
+    }
+  }
+}
+
+function initializeBaseTheme() {
+  const isCustom = (t) => t.comment && (t.comment.includes('Custom Iconic') || t.comment.includes('Custom Icon Mixer'));
+  const savedBase = localStorage.getItem('iconic_selected_base_theme');
+  const validBase = appState.iconThemes.find((t) => t.id === savedBase && !isCustom(t));
+
+  if (validBase) {
+    applyBaseThemeSelection(validBase.id, false);
+  } else {
+    const defaultId = getDefaultBaseTheme();
+    applyBaseThemeSelection(defaultId, false);
+    openBaseThemeModal();
+  }
 }
 
 // Perform export / update of theme
 async function performExport(isQuickSave = false) {
   const targetName = (isQuickSave ? els.mixedThemeName.value : els.exportThemeNameInput.value).trim() || 'Mi-Icon-Mix';
   const targetId = targetName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-  const baseTheme = (isQuickSave ? els.mixedBaseSelect.value : els.exportBaseSelect.value) || appState.currentSysTheme || 'Adwaita';
+  const baseTheme = appState.selectedBaseTheme || getDefaultBaseTheme();
   const applyImmediately = isQuickSave ? true : els.checkApplyImmediately.checked;
 
   const overridesList = Array.from(appState.overrides.values()).map((item) => {
@@ -361,7 +550,6 @@ async function performExport(isQuickSave = false) {
 
     if (applyImmediately) {
       appState.currentSysTheme = targetId;
-      els.currentSysTheme.textContent = `Tema actual: ${targetId}`;
     }
 
     // Refresh themes list & app icons cache
@@ -383,27 +571,19 @@ async function loadIconThemes() {
     const themes = await invoke('list_icon_themes');
     appState.iconThemes = themes;
     els.themeTotalCount.textContent = `${themes.length} paquetes instalados`;
-    populateBaseSelects();
     renderThemes();
   } catch (err) {
     showToast(`Error al listar temas: ${err}`, true);
   }
 }
 
-function populateBaseSelects() {
-  const options = appState.iconThemes
-    .map(
-      (t) =>
-        `<option value="${t.id}" ${t.id === appState.currentSysTheme ? 'selected' : ''}>${t.name} (${t.id})</option>`
-    )
-    .join('');
-  els.mixedBaseSelect.innerHTML = options;
-  els.exportBaseSelect.innerHTML = options;
-}
-
 function populateExportSelect() {
   els.exportThemeNameInput.value = els.mixedThemeName.value.trim() || 'Mi-Icon-Mix';
-  els.exportBaseSelect.value = els.mixedBaseSelect.value;
+  const themeObj = appState.iconThemes.find(t => t.id === appState.selectedBaseTheme);
+  const themeName = themeObj ? themeObj.name : appState.selectedBaseTheme;
+  if (els.exportBaseSelect) {
+    els.exportBaseSelect.innerHTML = `<option value="${appState.selectedBaseTheme}" selected>${themeName} (${appState.selectedBaseTheme})</option>`;
+  }
 }
 
 // Load Applications with Progress
@@ -450,7 +630,7 @@ async function loadAppsIconsBatch(apps) {
         try {
           const iconUri = await invoke('resolve_app_icon', {
             iconName: app.icon_name,
-            themeId: appState.currentSysTheme || null,
+            themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
           });
           if (iconUri) {
             appState.appIconMap.set(app.file_name, iconUri);
@@ -488,7 +668,7 @@ async function loadSystemIconsBatch(items) {
       try {
         const iconUri = await invoke('resolve_app_icon', {
           iconName: it.icon_name,
-          themeId: appState.currentSysTheme || null,
+          themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
         });
         if (iconUri) {
           appState.systemIconMap.set(it.id, iconUri);
@@ -608,7 +788,9 @@ function renderThemes() {
       try {
         await invoke('set_current_desktop_theme', { themeName: t.id });
         appState.currentSysTheme = t.id;
-        els.currentSysTheme.textContent = `Tema actual: ${t.id}`;
+        if (els.currentSysTheme) {
+          els.currentSysTheme.textContent = `Tema actual: ${t.id}`;
+        }
         showToast(`Tema aplicado: ${t.name}`);
         renderThemes();
         appState.appIconMap.clear();

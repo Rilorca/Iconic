@@ -39,11 +39,11 @@ if [ -f "$DIR/src/assets/icon.svg" ]; then
 fi
 
 $SUDO mkdir -p "$APP_DIR"
-$SUDO tee "$APP_DIR/io.github.rilorca.Iconic.desktop" > /dev/null << 'EOF'
+$SUDO tee "$APP_DIR/io.github.rilorca.Iconic.desktop" > /dev/null << EOF
 [Desktop Entry]
 Name=Iconic
 Comment=Custom Icon Mixer & Theme Blender for Linux Desktop
-Exec=iconic
+Exec=$PREFIX/bin/iconic
 Icon=io.github.rilorca.Iconic
 Terminal=false
 Type=Application
@@ -53,6 +53,12 @@ EOF
 
 if command -v update-desktop-database >/dev/null 2>&1; then
     $SUDO update-desktop-database "$APP_DIR" 2>/dev/null || true
+fi
+
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental 2>/dev/null || true
+elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+    kbuildsycoca5 --noincremental 2>/dev/null || true
 fi
 
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then

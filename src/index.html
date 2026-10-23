@@ -17,7 +17,11 @@
             <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
           </svg>
         </button>
-        <span class="system-theme-badge" id="current-sys-theme" style="font-size: 11.5px; opacity: 0.8; font-weight: 500;">Tema actual: Cargando...</span>
+        <button id="btn-select-base-theme" class="adw-btn" style="display: flex; align-items: center; gap: 7px; padding: 5px 12px; font-size: 12px; font-weight: 500; border-radius: var(--radius-sm); border: 1px solid var(--card-border);" title="Hacer clic para cambiar el pack de iconos base">
+          <span style="opacity: 0.85;">🎨 Pack Base:</span>
+          <b id="header-base-theme-name" style="color: var(--accent);">Cargando...</b>
+          <span style="font-size: 9px; opacity: 0.6;">▼</span>
+        </button>
       </div>
 
       <div class="adw-view-switcher">
@@ -161,11 +165,13 @@
             <label style="font-size: 13px; font-weight: 600;">Nombre:</label>
             <input type="text" id="mixed-theme-name" class="adw-search-input" value="Mi-Icon-Mix" style="background: var(--input-bg); padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--input-border);" />
           </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <label style="font-size: 13px; font-weight: 600;">Base:</label>
-            <select id="mixed-base-theme-select" style="background: var(--input-bg); color: var(--text-main); border: 1px solid var(--input-border); padding: 6px 10px; border-radius: var(--radius-sm); font-size: 13px; outline: none;">
-              <!-- Loaded options -->
-            </select>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 13px; font-weight: 600;">Pack Base:</label>
+            <button id="btn-mix-change-base" class="adw-btn" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 12.5px; border: 1px solid var(--input-border);" title="Cambiar el pack de iconos base">
+              <span id="mixed-base-theme-label" style="font-weight: 600; color: var(--accent);">Papirus-Dark</span>
+              <span style="font-size: 11px; color: var(--text-muted);">(Cambiar)</span>
+            </button>
+            <select id="mixed-base-theme-select" style="display: none;"></select>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <button id="btn-quick-save" class="adw-btn suggested" title="Guardar cambios y actualizar el tema en el escritorio inmediatamente">
@@ -279,6 +285,39 @@
         <div class="adw-modal-footer">
           <button id="btn-cancel-export" class="adw-btn flat">Cancelar</button>
           <button id="btn-confirm-export" class="adw-btn suggested">Crear y Aplicar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Base Theme Selector Modal / Onboarding -->
+    <div id="base-theme-modal" class="adw-modal-overlay">
+      <div class="adw-modal" style="width: 680px; max-width: 95vw; height: 80vh; max-height: 680px; display: flex; flex-direction: column;">
+        <div class="adw-modal-header" style="flex-direction: column; align-items: flex-start; gap: 4px; padding-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+            <div class="adw-modal-title" style="font-size: 16px; font-weight: 700;">
+              🎨 Selecciona tu Pack de Iconos Base
+            </div>
+            <button id="btn-close-base-modal" class="adw-btn flat" style="padding: 4px 8px;">✕</button>
+          </div>
+          <p style="font-size: 12.5px; color: var(--text-muted); line-height: 1.4; margin-top: 2px;">
+            Este pack será el cimiento de tu tema. Todos los iconos de ajustes, bandejas y carpetas se heredarán de él, y luego podrás personalizar los iconos individuales que quieras.
+          </p>
+        </div>
+        <div style="padding: 10px 18px 6px;">
+          <input type="text" id="base-theme-search" class="adw-search-input" placeholder="Buscar pack base (ej. Papirus, Breeze, Tela, Kora...)" style="width: 100%;" />
+        </div>
+        <div class="scrollable-view" style="flex: 1; overflow-y: auto; padding: 10px 18px;">
+          <div id="base-themes-grid" class="apps-grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+            <!-- Rendered base themes -->
+          </div>
+        </div>
+        <div class="adw-modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+          <span id="base-selected-hint" style="font-size: 12.5px; color: var(--text-muted);">
+            Ningún pack seleccionado
+          </span>
+          <button id="btn-confirm-base-theme" class="adw-btn suggested" disabled>
+            Comenzar con este pack
+          </button>
         </div>
       </div>
     </div>

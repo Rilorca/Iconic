@@ -513,6 +513,26 @@ fn find_icons_in_all_themes(icon_name: String) -> Result<Vec<ThemeIconMatch>, St
 
 #[tauri::command]
 fn get_current_desktop_theme() -> Result<String, String> {
+    // Try KDE Plasma kreadconfig6 / kreadconfig5 first
+    let kde_out = std::process::Command::new("kreadconfig6")
+        .args(["--file", "kdeglobals", "--group", "Icons", "--key", "Theme"])
+        .output()
+        .or_else(|_| {
+            std::process::Command::new("kreadconfig5")
+                .args(["--file", "kdeglobals", "--group", "Icons", "--key", "Theme"])
+                .output()
+        });
+
+    if let Ok(out) = kde_out {
+        if out.status.success() {
+            let val = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !val.is_empty() {
+                return Ok(val);
+            }
+        }
+    }
+
+    // Try gsettings (GNOME, Cinnamon, MATE, etc.)
     let output = std::process::Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "icon-theme"])
         .output();
@@ -533,16 +553,34 @@ fn get_current_desktop_theme() -> Result<String, String> {
 
 #[tauri::command]
 fn set_current_desktop_theme(theme_name: String) -> Result<String, String> {
-    let output = std::process::Command::new("gsettings")
+    // Set for GNOME / GTK
+    let gnome_res = std::process::Command::new("gsettings")
         .args(["set", "org.gnome.desktop.interface", "icon-theme", &theme_name])
-        .output()
-        .map_err(|e| format!("Failed to run gsettings: {}", e))?;
+        .output();
 
-    if output.status.success() {
-        Ok(format!("Theme applied: {}", theme_name))
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    // Set for KDE Plasma (both kwriteconfig6/5 and D-Bus notification)
+    let _ = std::process::Command::new("kwriteconfig6")
+        .args(["--file", "kdeglobals", "--group", "Icons", "--key", "Theme", &theme_name])
+        .output();
+    let _ = std::process::Command::new("kwriteconfig5")
+        .args(["--file", "kdeglobals", "--group", "Icons", "--key", "Theme", &theme_name])
+        .output();
+    let _ = std::process::Command::new("kbuildsycoca6")
+        .args(["--noincremental"])
+        .output();
+    let _ = std::process::Command::new("qdbus6")
+        .args(["org.kde.KIconLoader", "/KIconLoader", "iconChanged"])
+        .output();
+    let _ = std::process::Command::new("qdbus")
+        .args(["org.kde.KIconLoader", "/KIconLoader", "iconChanged"])
+        .output();
+
+    if let Ok(out) = gnome_res {
+        if out.status.success() {
+            return Ok(format!("Theme applied: {}", theme_name));
+        }
     }
+    Ok(format!("Theme applied: {}", theme_name))
 }
 
 // Generate mixed icon theme
@@ -607,22 +645,66 @@ Type=Threshold
                 "devices" => "Devices",
                 "status" => "Status",
                 "actions" => "Actions",
+                "categories" => "Categories",
                 _ => "Applications",
             }
         ));
     }
+
+    // Build robust inheritance chain to ensure KDE Plasma & GNOME never lose system icons
+    let mut inherit_list: Vec<String> = Vec::new();
+
+    // Guard against circular inheritance (theme inheriting from itself)
+    let safe_base = if base_theme_id.trim().is_empty() || base_theme_id == target_theme_id {
+        "Papirus-Dark".to_string()
+    } else {
+        base_theme_id.clone()
+    };
+
+    inherit_list.push(safe_base.clone());
+
+    // Inspect base theme's index.theme to inherit its parent themes (e.g. Papirus -> breeze)
+    for dir in get_icon_search_dirs() {
+        let base_index = dir.join(&safe_base).join("index.theme");
+        if base_index.exists() {
+            let ini = parse_ini_file(&base_index);
+            if let Some(sec) = ini.get("Icon Theme") {
+                if let Some(inh) = sec.get("Inherits") {
+                    for item in inh.split(',') {
+                        let trimmed = item.trim();
+                        if !trimmed.is_empty() && trimmed != target_theme_id && !inherit_list.contains(&trimmed.to_string()) {
+                            inherit_list.push(trimmed.to_string());
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
+
+    // Always include Breeze and hicolor fallbacks for KDE Plasma and desktop controls
+    for fallback in &["breeze-dark", "breeze", "Adwaita", "hicolor"] {
+        let f_str = fallback.to_string();
+        if f_str != target_theme_id && !inherit_list.contains(&f_str) {
+            inherit_list.push(f_str);
+        }
+    }
+
+    let inherits_str = inherit_list.join(",");
 
     // Write index.theme
     let theme_content = format!(
 r#"[Icon Theme]
 Name={name}
 Comment=Custom Iconic theme based on {base}
-Inherits={base},hicolor
+Inherits={inherits}
+FollowsColorScheme=true
 Directories={directories}
 
 {sections}"#,
         name = target_theme_name,
-        base = base_theme_id,
+        base = safe_base,
+        inherits = inherits_str,
         directories = dir_list,
         sections = section_defs
     );
