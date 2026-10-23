@@ -1,10 +1,18 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{OnceLock, RwLock};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
+use rayon::prelude::*;
+
+static ICON_CACHE: OnceLock<RwLock<HashMap<String, Option<PathBuf>>>> = OnceLock::new();
+
+fn get_icon_cache() -> &'static RwLock<HashMap<String, Option<PathBuf>>> {
+    ICON_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IconTheme {
@@ -301,7 +309,39 @@ fn list_icon_themes() -> Result<Vec<IconTheme>, String> {
     Ok(themes)
 }
 
-// Find icon file in a specific theme by name
+// Standard icon directories to probe directly for ultra-fast lookup (sub-millisecond)
+const PROBE_SUBDIRS: &[&str] = &[
+    "scalable/apps",
+    "apps/scalable",
+    "48x48/apps",
+    "apps/48",
+    "64x64/apps",
+    "apps/64",
+    "128x128/apps",
+    "apps/128",
+    "256x256/apps",
+    "512x512/apps",
+    "32x32/apps",
+    "apps/32",
+    "scalable/places",
+    "48x48/places",
+    "places/scalable",
+    "scalable/mimetypes",
+    "48x48/mimetypes",
+    "mimetypes/scalable",
+    "scalable/devices",
+    "48x48/devices",
+    "devices/scalable",
+    "scalable/categories",
+    "48x48/categories",
+    "categories/scalable",
+    "scalable/status",
+    "48x48/status",
+    "scalable/actions",
+    "48x48/actions",
+];
+
+// Find icon file in a specific theme by name with in-memory caching and fast probing
 fn find_icon_in_theme(theme_path: &Path, icon_name: &str) -> Option<PathBuf> {
     if !theme_path.exists() {
         return None;
@@ -313,70 +353,126 @@ fn find_icon_in_theme(theme_path: &Path, icon_name: &str) -> Option<PathBuf> {
         return Some(direct.to_path_buf());
     }
 
+    let cache_key = format!("{}:{}", theme_path.to_string_lossy(), icon_name.to_lowercase());
+
+    // 1. Fast Cache Read
+    if let Ok(cache) = get_icon_cache().read() {
+        if let Some(val) = cache.get(&cache_key) {
+            return val.clone();
+        }
+    }
+
     let exts = ["svg", "png", "webp", "xpm"];
 
-    // First check scalable apps or largest sizes
-    // Search priorities: apps, scalable, 128x128, 64x64, 48x48, etc.
+    // 2. Ultra-Fast Probe: Direct file existence checks in standard subdirectories
     let mut candidate_svg: Option<PathBuf> = None;
     let mut candidate_png: Option<PathBuf> = None;
 
-    for entry in WalkDir::new(theme_path)
-        .max_depth(5)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let p = entry.path();
-        if p.is_file() {
-            if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
-                if stem.eq_ignore_ascii_case(icon_name) {
-                    if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                        let ext_lower = ext.to_lowercase();
-                        if ext_lower == "svg" {
-                            candidate_svg = Some(p.to_path_buf());
-                            break; // Scalable SVG is ideal
-                        } else if exts.contains(&ext_lower.as_str()) {
-                            let path_str = p.to_string_lossy();
-                            if path_str.contains("apps") || path_str.contains("scalable") || path_str.contains("512") || path_str.contains("256") || path_str.contains("128") {
-                                candidate_png = Some(p.to_path_buf());
-                            } else if candidate_png.is_none() {
-                                candidate_png = Some(p.to_path_buf());
+    for subdir in PROBE_SUBDIRS {
+        let sub_p = theme_path.join(subdir);
+        let svg_p = sub_p.join(format!("{}.svg", icon_name));
+        if svg_p.exists() {
+            candidate_svg = Some(svg_p);
+            break; // Scalable SVG is top priority
+        }
+        if candidate_png.is_none() {
+            for ext in &["png", "webp", "xpm"] {
+                let p = sub_p.join(format!("{}.{}", icon_name, ext));
+                if p.exists() {
+                    candidate_png = Some(p);
+                    break;
+                }
+            }
+        }
+    }
+
+    let fast_result = candidate_svg.or(candidate_png);
+    if fast_result.is_some() {
+        if let Ok(mut cache) = get_icon_cache().write() {
+            cache.insert(cache_key, fast_result.clone());
+        }
+        return fast_result;
+    }
+
+    // 3. Fallback Walk: Search only relevant icon subdirectories (max_depth 3)
+    let search_subdirs = ["apps", "scalable", "places", "mimetypes", "devices", "categories", "status"];
+    let mut candidate_svg_walk: Option<PathBuf> = None;
+    let mut candidate_png_walk: Option<PathBuf> = None;
+
+    let target_dirs: Vec<PathBuf> = search_subdirs
+        .iter()
+        .map(|s| theme_path.join(s))
+        .filter(|p| p.exists())
+        .collect();
+
+    let dirs_to_walk = if target_dirs.is_empty() {
+        vec![theme_path.to_path_buf()]
+    } else {
+        target_dirs
+    };
+
+    for walk_root in dirs_to_walk {
+        for entry in WalkDir::new(&walk_root)
+            .max_depth(3)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let p = entry.path();
+            if p.is_file() {
+                if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                    if stem.eq_ignore_ascii_case(icon_name) {
+                        if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                            let ext_lower = ext.to_lowercase();
+                            if ext_lower == "svg" {
+                                candidate_svg_walk = Some(p.to_path_buf());
+                                break;
+                            } else if exts.contains(&ext_lower.as_str()) && candidate_png_walk.is_none() {
+                                candidate_png_walk = Some(p.to_path_buf());
                             }
                         }
                     }
                 }
             }
         }
+        if candidate_svg_walk.is_some() {
+            break;
+        }
     }
 
-    candidate_svg.or(candidate_png)
+    let final_result = candidate_svg_walk.or(candidate_png_walk);
+
+    // Cache final result (including None to avoid repeated negative walks)
+    if let Ok(mut cache) = get_icon_cache().write() {
+        cache.insert(cache_key, final_result.clone());
+    }
+
+    final_result
 }
 
-// Resolve icon for an app according to a theme hierarchy (or current system theme)
-#[tauri::command]
-fn resolve_app_icon(icon_name: String, theme_id: Option<String>) -> Result<Option<String>, String> {
-    let icon_p = Path::new(&icon_name);
+fn resolve_app_icon_internal(icon_name: &str, theme_id: Option<&str>) -> Option<String> {
+    let icon_p = Path::new(icon_name);
     if icon_p.is_absolute() && icon_p.exists() {
-        return Ok(file_to_data_uri(icon_p));
+        return file_to_data_uri(icon_p);
     }
 
     let search_dirs = get_icon_search_dirs();
     let mut themes_to_try = Vec::new();
 
-    if let Some(ref tid) = theme_id {
-        themes_to_try.push(tid.clone());
+    if let Some(tid) = theme_id {
+        themes_to_try.push(tid);
     }
 
     // Add fallback themes
-    themes_to_try.push("hicolor".to_string());
-    themes_to_try.push("Adwaita".to_string());
-    themes_to_try.push("breeze".to_string());
+    themes_to_try.push("hicolor");
+    themes_to_try.push("Adwaita");
+    themes_to_try.push("breeze");
 
     for tid in &themes_to_try {
         for base in &search_dirs {
             let tdir = base.join(tid);
-            if let Some(found) = find_icon_in_theme(&tdir, &icon_name) {
+            if let Some(found) = find_icon_in_theme(&tdir, icon_name) {
                 if let Some(uri) = file_to_data_uri(&found) {
-                    return Ok(Some(uri));
+                    return Some(uri);
                 }
             }
         }
@@ -388,12 +484,49 @@ fn resolve_app_icon(icon_name: String, theme_id: Option<String>) -> Result<Optio
         let p = pixmaps.join(format!("{}.{}", icon_name, ext));
         if p.exists() {
             if let Some(uri) = file_to_data_uri(&p) {
-                return Ok(Some(uri));
+                return Some(uri);
             }
         }
     }
 
-    Ok(None)
+    None
+}
+
+// Resolve icon for an app according to a theme hierarchy (or current system theme)
+#[tauri::command]
+fn resolve_app_icon(icon_name: String, theme_id: Option<String>) -> Result<Option<String>, String> {
+    Ok(resolve_app_icon_internal(&icon_name, theme_id.as_deref()))
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IconBatchRequest {
+    pub key: String,
+    pub icon_name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IconBatchResult {
+    pub key: String,
+    pub data_uri: String,
+}
+
+#[tauri::command]
+fn resolve_icons_batch(
+    requests: Vec<IconBatchRequest>,
+    theme_id: Option<String>,
+) -> Result<Vec<IconBatchResult>, String> {
+    let tid = theme_id.as_deref();
+    let results: Vec<IconBatchResult> = requests
+        .into_par_iter()
+        .filter_map(|req| {
+            resolve_app_icon_internal(&req.icon_name, tid).map(|uri| IconBatchResult {
+                key: req.key,
+                data_uri: uri,
+            })
+        })
+        .collect();
+
+    Ok(results)
 }
 
 #[tauri::command]
@@ -483,30 +616,29 @@ fn list_applications() -> Result<Vec<AppEntry>, String> {
 #[tauri::command]
 fn find_icons_in_all_themes(icon_name: String) -> Result<Vec<ThemeIconMatch>, String> {
     let themes = list_icon_themes()?;
-    let mut matches = Vec::new();
-
-    for theme in themes {
-        let t_path = PathBuf::from(&theme.path);
-        if let Some(found_path) = find_icon_in_theme(&t_path, &icon_name) {
+    let matches: Vec<ThemeIconMatch> = themes
+        .into_par_iter()
+        .filter_map(|theme| {
+            let t_path = PathBuf::from(&theme.path);
+            let found_path = find_icon_in_theme(&t_path, &icon_name)?;
             let format = found_path
                 .extension()
                 .and_then(|e| e.to_str())
                 .unwrap_or("png")
                 .to_lowercase();
-            if let Some(data) = file_to_data_uri(&found_path) {
-                let size_str = get_icon_dimensions(&found_path);
-                matches.push(ThemeIconMatch {
-                    theme_id: theme.id,
-                    theme_name: theme.name,
-                    icon_path: found_path.to_string_lossy().to_string(),
-                    icon_format: format,
-                    icon_data: data,
-                    target_app_icon: Some(icon_name.clone()),
-                    size: Some(size_str),
-                });
-            }
-        }
-    }
+            let data = file_to_data_uri(&found_path)?;
+            let size_str = get_icon_dimensions(&found_path);
+            Some(ThemeIconMatch {
+                theme_id: theme.id,
+                theme_name: theme.name,
+                icon_path: found_path.to_string_lossy().to_string(),
+                icon_format: format,
+                icon_data: data,
+                target_app_icon: Some(icon_name.clone()),
+                size: Some(size_str),
+            })
+        })
+        .collect();
 
     Ok(matches)
 }
@@ -1181,6 +1313,7 @@ pub fn run() {
             list_applications,
             list_system_items,
             resolve_app_icon,
+            resolve_icons_batch,
             find_icons_in_all_themes,
             get_current_desktop_theme,
             set_current_desktop_theme,

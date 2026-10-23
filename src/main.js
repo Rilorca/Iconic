@@ -586,23 +586,25 @@ function populateExportSelect() {
   }
 }
 
-// Load Applications with Progress
+// Load Applications with Progress (Instant Rendering + Background Batch Resolving)
 async function loadApplications() {
   appState.isLoadingApps = true;
-  els.appsGrid.innerHTML = '';
   els.appLoadingBarContainer.style.display = 'block';
   els.appLoadingBar.style.width = '0%';
   els.appsLoadingBanner.style.display = 'flex';
   els.loadingProgressPercentage.textContent = '0%';
   els.bannerProgressBar.style.width = '0%';
-  els.loadingStatusText.textContent = 'Analizando aplicaciones instaladas...';
+  els.loadingStatusText.textContent = 'Cargando aplicaciones...';
 
   try {
     const apps = await invoke('list_applications');
     appState.apps = apps;
+    appState.isLoadingApps = false;
     updateBadgeCounts();
+    // Render apps immediately without waiting for all icons to resolve
+    renderApps();
 
-    // Batch resolve icons in parallel chunks
+    // Fast parallel batch resolve in background
     await loadAppsIconsBatch(apps);
   } catch (err) {
     showToast(`Error al cargar aplicaciones: ${err}`, true);
@@ -610,36 +612,42 @@ async function loadApplications() {
     appState.isLoadingApps = false;
     els.appLoadingBarContainer.style.display = 'none';
     els.appsLoadingBanner.style.display = 'none';
-    renderApps();
   }
 }
 
-// Parallel Chunked Icon Resolver
+// Parallel Batch Icon Resolver (Uses multi-threaded Rust batch resolver)
 async function loadAppsIconsBatch(apps) {
   const toLoad = apps.filter((a) => !appState.appIconMap.has(a.file_name));
   const total = toLoad.length;
   if (total === 0) return;
 
-  const chunkSize = 25;
+  const chunkSize = 80;
   let completed = 0;
 
   for (let i = 0; i < total; i += chunkSize) {
     const chunk = toLoad.slice(i, i + chunkSize);
-    await Promise.all(
-      chunk.map(async (app) => {
-        try {
-          const iconUri = await invoke('resolve_app_icon', {
-            iconName: app.icon_name,
-            themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
-          });
-          if (iconUri) {
-            appState.appIconMap.set(app.file_name, iconUri);
-          }
-        } catch (e) {
-          // fallback
+    const requests = chunk.map((app) => ({
+      key: app.file_name,
+      icon_name: app.icon_name,
+    }));
+
+    try {
+      const results = await invoke('resolve_icons_batch', {
+        requests,
+        themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
+      });
+
+      results.forEach((res) => {
+        appState.appIconMap.set(res.key, res.data_uri);
+        const imgEl = document.getElementById(`icon-img-${CSS.escape(res.key)}`);
+        if (imgEl) {
+          imgEl.src = res.data_uri;
+          imgEl.style.display = 'block';
         }
-      })
-    );
+      });
+    } catch (e) {
+      console.warn('Batch icon resolve failed:', e);
+    }
 
     completed += chunk.length;
     const progress = Math.min(100, Math.round((completed / total) * 100));
@@ -655,28 +663,38 @@ async function loadSystemItems() {
   try {
     const items = await invoke('list_system_items');
     appState.systemItems = items;
-    await loadSystemIconsBatch(items);
     renderSystemItems();
+    await loadSystemIconsBatch(items);
   } catch (err) {
     console.warn('Failed to load system items:', err);
   }
 }
 
 async function loadSystemIconsBatch(items) {
-  for (const it of items) {
-    if (!appState.systemIconMap.has(it.id)) {
-      try {
-        const iconUri = await invoke('resolve_app_icon', {
-          iconName: it.icon_name,
-          themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
-        });
-        if (iconUri) {
-          appState.systemIconMap.set(it.id, iconUri);
-        }
-      } catch (e) {
-        // fallback
+  const toLoad = items.filter((it) => !appState.systemIconMap.has(it.id));
+  if (toLoad.length === 0) return;
+
+  const requests = toLoad.map((it) => ({
+    key: it.id,
+    icon_name: it.icon_name,
+  }));
+
+  try {
+    const results = await invoke('resolve_icons_batch', {
+      requests,
+      themeId: appState.selectedBaseTheme || appState.currentSysTheme || null,
+    });
+
+    results.forEach((res) => {
+      appState.systemIconMap.set(res.key, res.data_uri);
+      const imgEl = document.getElementById(`icon-sys-${CSS.escape(res.key)}`);
+      if (imgEl) {
+        imgEl.src = res.data_uri;
+        imgEl.style.display = 'block';
       }
-    }
+    });
+  } catch (e) {
+    console.warn('System icon batch resolve failed:', e);
   }
 }
 
@@ -891,8 +909,6 @@ async function loadThemeForEditing(themeId) {
 
 // Render Applications
 function renderApps() {
-  if (appState.isLoadingApps) return;
-
   const query = els.appSearchInput.value.toLowerCase().trim();
   let filtered = appState.apps.filter(
     (a) =>
